@@ -4,17 +4,22 @@
 inline double calcDyDx(double x2R, double sn, double csInv, double cs2Inv)
 {
   // expansion of (s+(s+x2r))/( sqrt(1-s^2) + sqrt(1.-(s+x2r)^2) ) up to 3d power in x2r
-  // = s/(1-s^2)^(1/2) + x/2/(1-s^2)^(3/2)+s*x^2/2/(1-s^2)^(5/2)+(4s^2+1)/8/(1-s^2)^(7/2)*x^3
-  double x2Rcs2Inv = x2R*cs2Inv/2.;
-  return csInv*(sn + x2Rcs2Inv*(1.+2.*x2Rcs2Inv*(sn+x2Rcs2Inv*(4.*sn*sn+1))));
+  // = s/(1-s^2)^(1/2) + x/2/(1-s^2)^(3/2) + s*x^2/2/(1-s^2)^(5/2) + (4s^2+1)/8/(1-s^2)^(7/2)*x^3
+  // + f*(4f^2+3)*x^4/8/(1-f^2)^{9/2}
+
+  double q = x2R*cs2Inv/2.;
+  double w0 = sn+sn; // 2*sn
+  double w1 = w0*w0; // 4*sn*sn
+  return csInv*(sn + q*(1.+q*(w0+q*(w1+1.+ w0*(w1+3.)*q))));
 }
 
 inline double calcDyDxDD(double x2R, double sn, double csInv, double cs2Inv)
 {
-  // expansion of (s+(s+x2r))/( sqrt(1-s^2) + sqrt(1.-(s+x2r)^2) ) up to 3d power in x2r
-  // = s/(1-s^2)^(1/2) + x/2/(1-s^2)^(3/2)+s*x^2/2/(1-s^2)^(5/2)+(4s^2+1)/8/(1-s^2)^(7/2)*x^3
-  double x2Rcs2Inv = x2R*cs2Inv;
-  return 0.5*csInv*cs2Inv*(1. + x2Rcs2Inv*(2.*sn+3./4.*x2Rcs2Inv*(4.*sn*sn+1)));
+  // derivative of DyDx
+  double q = x2R*cs2Inv;
+  double w0 = sn+sn; // 2*sn
+  double w1 = w0*w0; // 4*sn*sn
+  return 0.5*csInv*cs2Inv*(1. + q*(w0+q*(3./4*(w1+1.)+sn*(w1+3)*q )));
 }
 
 
