@@ -1,8 +1,10 @@
 #include "MathUtils/Cartesian3D.h"
 #include <cmath>
+#include <utility>
+#include <array>
 #include <cassert>
-#include <DetectorBase/Constants.h>
-#include <DetectorBase/Utils.h>
+#include "DetectorsBase/Constants.h"
+#include "DetectorsBase/Utils.h"
 
 
 /**********************************************************************
@@ -15,7 +17,7 @@
  **********************************************************************/
 
 struct MatCell {
-  static constexpr NParams = 2; // number of material parameters stored
+  static constexpr int NParams = 2; // number of material parameters stored
   float mRhoAv = 0.f;    ///< 
   float mX2X0  = 0.f;    ///<
 };
@@ -42,15 +44,20 @@ class MatLayerCyl {
   int   getNZSlices()    const {return mNZSlices;}
   int   getNPhiSlices()  const {return mNPhiSlices;}
 
+  float getRMin2()       const {return mRMin2;}
+  float getRMax2()       const {return mRMax2;}
+
+  
   // linearized cell ID
   int getCellID(int iphi,int iz)       const {return iphi*mNZSlices + iz;}
   
   // obtain material cell, cell ID must be valid
-  MatCell& getCell(int iphi, int iz)   const {return mCells[getCellID(iphi,iz)];}
+  const MatCell& getCell(int iphi, int iz)   const {return mCells[getCellID(iphi,iz)];}
+  MatCell& getCell(int iphi, int iz)               {return mCells[getCellID(iphi,iz)];}
   
   // ---------------------- Z slice manipulation
   // convert Z to Zslice
-  int getZSliceID(float z)             const {return z>mZMmin && z<mZMax ? int((z-mZMin)*mDZInv) : -1;}
+  int getZSliceID(float z)             const {return z>mZMin && z<mZMax ? int((z-mZMin)*mDZInv) : -1;}
 
   // lower boundary of Z slice
   float getZSliceMin(int id)           const {return mZMin + id*mDZ;}
@@ -58,7 +65,7 @@ class MatLayerCyl {
   // upper boundary of Z slice
   float getZSliceMax(int id)           const {return mZMin + (id+1)*mDZ;}
 
-  // ---------------------- Phi slice manipulation (0:2pi convention, no checl is done)
+  // ---------------------- Phi slice manipulation (0:2pi convention, no check is done)
   // convert Phi to Zslice
   int getPhiSliceID(float phi)         const {
     assert(phi>=0.f); // temporary, to remove
@@ -67,7 +74,7 @@ class MatLayerCyl {
   }
   
   // lower boundary of phi slice
-  float getPhiSliceMin(int id)         const {return phi = id*mDPhi;}
+  float getPhiSliceMin(int id)         const {return id*mDPhi;}
 
   // upper boundary of phi slice
   float getPhiSliceMax(int id)         const {return (id+1)*mDPhi;}
@@ -88,7 +95,7 @@ class MatLayerCyl {
   float mRMin2 = 0.f;      ///< squared min r
   float mRMax2 = 0.f;      ///< squared max r
   float mDZ = 0.f;         ///< Z slice thickness
-  float mDZInv 0.f;        ///< Z slice thickness inverse
+  float mDZInv = 0.f;      ///< Z slice thickness inverse
   float mDPhi = 0.f;       ///< phi slice thickness
   float mDPhiInv = 0.f;    ///< phi slice thickness inverse
 
@@ -109,6 +116,13 @@ MatLayerCyl::MatLayerCyl(float rMin,float rMax,float zMin,float zMax,int nz,int 
 void MatLayerCyl::initSegmentation(float rMin,float rMax,float zMin,float zMax,int nz,int nphi)
 {
   // recalculate aux parameters
+  mRMin = rMin;
+  mRMax = rMax;
+  mZMin = zMin;
+  mZMax = zMax;
+  mNZSlices = nz;
+  mNPhiSlices = nphi;
+  
   assert(mRMin<mRMax);
   assert(mZMin<mZMax);
   assert(mNZSlices>0);
@@ -140,6 +154,8 @@ class Ray {
   
  public:
 
+  using CrossPar = std::pair<float,float>;
+  
   // get material budget
   void getMatBudget(const MatLayerCyl& lr) const;
 
@@ -149,7 +165,8 @@ class Ray {
 
   Ray(const Point3D<float> point0,const Point3D<float> point1);
 
-  bool  crossCircleR(float r, float &t0, float &t1) const;
+  bool  crossCircleR(float r2, CrossPar& cross) const;
+  int   crossLayerR(const MatLayerCyl& lr, std::array<CrossPar,2>& cross) const;
   float crossRadial(float cs, float sn) const;
   float crossZ(float z) const;
   
@@ -167,6 +184,7 @@ class Ray {
   float mDist2 = 0.f;         ///< dist^2 between points in XY plane
   float mDist2i = 0.f;        ///< inverse dist^2 between points in XY plane
   float mXDxPlusYDy = 0.f;    ///< aux x0*DX+y0*DY
+  float mXDxPlusYDyRed = 0.f; ///< aux (x0*DX+y0*DY)/mDist2
   float mXDxPlusYDy2 = 0.f;   ///< aux (x0*DX+y0*DY)^2  
   float mR02 = 0.f;           ///< radius^2 of mP0
  
@@ -184,24 +202,75 @@ Ray::Ray(const Point3D<float> point0,const Point3D<float> point1)
   mDist2 = mDx*mDx + mDy*mDy;
   mDist2i = mDist2>0 ? 1.f/mDist2 : 0.f;
   mXDxPlusYDy = point0.X()*mDx + point0.Y()*mDy;
+  mXDxPlusYDyRed = -mXDxPlusYDy*mDist2i;
   mXDxPlusYDy2 = mXDxPlusYDy*mXDxPlusYDy;
   mR02 = point0.Perp2();
 } 
 
 
 //______________________________________________________
-inline bool Ray::crossCircleR(float r, float &t0, float &t1) const
+inline bool Ray::crossCircleR(float r2, CrossPar& cross) const
 {
-  // calculate parameters t of intersection with circle of radius r
+  // calculate parameters t of intersection with circle of radius r^2
   // calculated as solution of equation
   // t^2*mDist2 +- sqrt( mXDxPlusYDy^2 - mDist2*(mR02 - r^2) )
   // 
-  float det = mXDxPlusYDy2 - mDist2*(mR02 - r*r);
-  if (det<0) return InvalidT;  // no intersection
-  det = std::sqrt(det);
-  t0 = (-mXDxPlusYDy - det)*mDist2i;
-  t1 = (-mXDxPlusYDy + det)*mDist2i;
+  float det = mXDxPlusYDy2 - mDist2*(mR02 - r2);
+  if (det<0) return false;  // no intersection
+  float detRed = std::sqrt(det)*mDist2i;
+  cross.first  = mXDxPlusYDyRed + detRed; // (-mXDxPlusYDy + det)*mDist2i;
+  cross.second = mXDxPlusYDyRed - detRed; // (-mXDxPlusYDy - det)*mDist2i;
   return true;
+}
+
+//______________________________________________________
+inline int Ray::crossLayerR(const MatLayerCyl& lr, std::array<CrossPar,2>& cross) const
+{
+  // Calculate parameters t of intersection with cyl.layer of rmin^2 and rmax^2.
+  // It is assumed rmin<rmax (not checked)
+  // Calculated as solution of equation
+  // t^2*mDist2 +- sqrt( mXDxPlusYDy^2 - mDist2*(mR02 - r^2) )
+  // Region of valid t is 0:1.
+  // Straigh line may have 2 crossings with cyl. layer 
+
+  float detMax = mXDxPlusYDy2 - mDist2*(mR02 - lr.getRMax2());
+  if (detMax<0) return 0;  // does not reach outer R, hence inner also
+  float detMaxRed = std::sqrt(detMax)*mDist2i;  
+  float tCross0Max = mXDxPlusYDyRed + detMaxRed; // largest possible t
+  
+  if (tCross0Max<0) { // max t is outside of the limiting point -> other t's also
+    return 0;
+  }
+
+  int nCross = 0;
+  float tCross0Min = mXDxPlusYDyRed - detMaxRed; // smallest possible t
+  if (tCross0Min>1.f) { // min t is outside of the limiting point -> other t's also
+    return nCross;
+  }
+
+  float detMin = mXDxPlusYDy2 - mDist2*(mR02 - lr.getRMin2());
+  if (detMin<0) {  // does not reach inner R -> just 1 tangential crossing
+    cross[nCross].first  = tCross0Min>0.f ? tCross0Min : 0.f;
+    cross[nCross].second = tCross0Max<1.f ? tCross0Max : 1.f;
+    return ++nCross;  
+  }
+  float detMinRed = std::sqrt(detMin)*mDist2i;
+  float tCross1Max = mXDxPlusYDyRed + detMinRed;
+  float tCross1Min = mXDxPlusYDyRed - detMinRed;
+
+  if (tCross1Max<1.f) {
+    cross[nCross].first  = tCross0Max<1.f ? tCross0Max:1.f;
+    cross[nCross].second = tCross1Max>0.f ? tCross1Max:0.f;
+    nCross++;
+  }
+  
+  if (tCross1Min>-0.f) {
+    cross[nCross].first  = tCross1Min<1.f ? tCross1Min:1.f;
+    cross[nCross].second = tCross0Min>0.f ? tCross0Min:0.f;
+    nCross++;
+  }
+
+  return nCross;
 }
 
 //______________________________________________________
