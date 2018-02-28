@@ -3,8 +3,8 @@
 #include <utility>
 #include <array>
 #include <cassert>
-#include "DetectorsBase/Constants.h"
-#include "DetectorsBase/Utils.h"
+#include "CommonConstants/MathConstants.h"
+#include "MathUtils/Utils.h"
 
 
 /**********************************************************************
@@ -134,7 +134,7 @@ void MatLayerCyl::initSegmentation(float rMin,float rMax,float zMin,float zMax,i
   mDZ = (mZMax-mZMin) / mNZSlices;
   mDZInv = 1.f/mDZInv;
 
-  mDPhi = o2::Base::Constants::k2PI / mNPhiSlices;
+  mDPhi = o2::constants::math::TwoPI / mNPhiSlices;
   mDPhiInv = 1.f/mDPhiInv;
   //
   int nCells = mNZSlices*mNPhiSlices;
@@ -144,7 +144,7 @@ void MatLayerCyl::initSegmentation(float rMin,float rMax,float zMin,float zMax,i
 
 /**********************************************************************
  *                                                                    *
- * Ray parameterized via itst endpoints as                            *
+ * Ray parameterized via its endpoints as                             *
  * Vi = Vi0 + t*(Vi1-Vi0), with Vi (i=0,1,2) for global X,Y,Z         *
  * and 0 < t < 1                                                      *
  *                                                                    *
