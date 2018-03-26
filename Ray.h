@@ -5,7 +5,10 @@
 #include <cassert>
 #include "CommonConstants/MathConstants.h"
 #include "MathUtils/Utils.h"
+#include <TGeoManager.h>
+#include "DetectorsBase/GeometryManager.h"
 
+#include <FairLogger.h>
 
 /**********************************************************************
  *                                                                    *
@@ -31,12 +34,12 @@ struct MatCell {
 class MatLayerCyl {
 
  public:
-  
-  MatLayerCyl(float rMin,float rMax,float zMin,float zMax,int nz,int nphi);
+  MatLayerCyl() = default;
+  MatLayerCyl(float rMin,float rMax,float zMin,float zMax,short nz,short nphi);
   ~MatLayerCyl() = default;
   
   // ----------------------- segmentation 
-  void  initSegmentation(float rMin,float rMax,float zMin,float zMax,int nz,int nphi);
+  void  initSegmentation(float rMin,float rMax,float zMin,float zMax,short nz,short nphi);
   float getRMin()        const {return mRMin;}
   float getRMax()        const {return mRMax;}
   float getZMin()        const {return mZMin;}
@@ -47,6 +50,9 @@ class MatLayerCyl {
   float getRMin2()       const {return mRMin2;}
   float getRMax2()       const {return mRMax2;}
 
+  void print() const;
+  void populateFromTGeo(int ntrPerCell=10);
+  void populateFromTGeo(int ip, int iz, int ntrPerCell);
   
   // linearized cell ID
   int getCellID(int iphi,int iz)       const {return iphi*mNZSlices + iz;}
@@ -79,7 +85,7 @@ class MatLayerCyl {
   // upper boundary of phi slice
   float getPhiSliceMax(int id)         const {return (id+1)*mDPhi;}
   
-  
+  const std::vector<MatCell> & getCells() const {return mCells;}
  protected:
   
 
@@ -88,8 +94,8 @@ class MatLayerCyl {
   float mRMax = 0.f;       ///< max radius
   float mZMin = 0.f;       ///< min Z
   float mZMax = 0.f;       ///< max
-  float mNZSlices = 0.f;   ///< number of Z slices
-  float mNPhiSlices = 0.f; ///< number of phi slices
+  short mNZSlices = 0;       ///< number of Z slices
+  short mNPhiSlices = 0;     ///< number of phi slices
   //
   // auxiliary varaibles
   float mRMin2 = 0.f;      ///< squared min r
@@ -104,16 +110,42 @@ class MatLayerCyl {
   ClassDefNV(MatLayerCyl,1);
 };
 
+//==================================================================================
+
+/**********************************************************************
+ *                                                                    *
+ * Set of cylindrical material layer                                  *
+ *                                                                    *
+ **********************************************************************/
+class MatLayerCylSet {
+
+ public:
+  MatLayerCylSet() = default;
+  ~MatLayerCylSet() = default;
+  int getNLayers() const {return mLayers.size();}
+  const MatLayerCyl& getLayer(int i) const {return mLayers[i];}
+  vector<MatLayerCyl>& getLayers() {return mLayers;}
+
+  void print() const;
+  void populateFromTGeo(int ntrPerCel=10);
+  
+ protected:
+  vector<MatLayerCyl> mLayers; ///< set of cylinrical layers
+
+  ClassDefNV(MatLayerCylSet,1);
+};
+
+//==================================================================================
 
 //________________________________________________________________________________
-MatLayerCyl::MatLayerCyl(float rMin,float rMax,float zMin,float zMax,int nz,int nphi)
+MatLayerCyl::MatLayerCyl(float rMin,float rMax,float zMin,float zMax,short nz,short nphi)
 {
   // main constructor
   initSegmentation(rMin,rMax,zMin,zMax,nz,nphi);
 }
 
 //________________________________________________________________________________
-void MatLayerCyl::initSegmentation(float rMin,float rMax,float zMin,float zMax,int nz,int nphi)
+void MatLayerCyl::initSegmentation(float rMin,float rMax,float zMin,float zMax,short nz,short nphi)
 {
   // recalculate aux parameters
   mRMin = rMin;
@@ -138,10 +170,91 @@ void MatLayerCyl::initSegmentation(float rMin,float rMax,float zMin,float zMax,i
   mDPhiInv = 1.f/mDPhiInv;
   //
   int nCells = mNZSlices*mNPhiSlices;
-  mCells.reserve(nCells);
+  mCells.resize(nCells);
 }
 
+//________________________________________________________________________________
+void MatLayerCyl::populateFromTGeo(int ntrPerCell)
+{
+  /// populate layer with info extracted from TGeometry
+  ntrPerCell = ntrPerCell>1 ? ntrPerCell : 1;
+  for (int iz=mNZSlices;iz--;) {
+    for (int ip=mNPhiSlices;ip--;) {
+      populateFromTGeo(ip, iz ,ntrPerCell);
+    }
+  }
+}
 
+//________________________________________________________________________________
+void MatLayerCyl::populateFromTGeo(int ip, int iz, int ntrPerCell)
+{
+  /// populate cell with info extracted from TGeometry
+  
+  float zmn = getZSliceMin(iz), phmn = getPhiSliceMin(ip), sn,cs;
+  double meanRho = 0., meanX2X0 = 0., lgt = 0.;;
+  for (int isz=ntrPerCell;isz--;) {
+    float zs = zmn + (isz+0.5)*mDZ/ntrPerCell;
+    for (int isp=ntrPerCell;isp--;) {
+      o2::utils::sincosf(phmn + (isp+0.5)*mDPhi/ntrPerCell, sn,cs);
+      auto bud = o2::Base::GeometryManager::MeanMaterialBudget(mRMin*cs,mRMin*sn,zs,mRMax*cs,mRMax*sn,zs);
+      if (bud.length>0.) {
+	meanRho += bud.length*bud.meanRho;
+	meanX2X0 += bud.length*bud.meanX2X0;
+	lgt += bud.length;
+      }	  
+    }
+  }
+  if (lgt>0.) {
+    auto &cell = getCell(ip,iz);
+    cell.mRhoAv = meanRho/lgt;
+    cell.mX2X0 = meanX2X0/lgt;
+  }  
+}
+
+//________________________________________________________________________________
+void MatLayerCyl::print() const
+{
+  ///< print layer data
+  printf("Cyl.Layer %.3f<r<%.3f %+.3f<Z<%+.3f | Nphi: %5d Nz: %5d\n",mRMin,mRMax,mZMin,mZMax,mNPhiSlices,mNZSlices);
+  for (int ip=0;ip<mNPhiSlices;ip++) {
+    printf("phi slice: %d (%.4f:%.4f) ... [iz/<rho>/<x/x0>] \n",ip,mDPhi*ip,mDPhi*(ip+1));
+    for (int iz=0;iz<mNZSlices;iz++) {
+      auto cell = getCell(ip,iz);
+      printf("%3d/%.2e/%.2e ",iz,cell.mRhoAv,cell.mX2X0);
+      if (((iz+1)%5)==0) {
+	printf("\n");
+      }
+    }
+    if (mNZSlices%5) {
+      printf("\n");
+    }
+  }
+}
+
+//==========================================================
+//________________________________________________________________________________
+void MatLayerCylSet::print() const
+{
+  ///< print layer data
+  for (int i=0;i<getNLayers();i++) {
+    mLayers[i].print();
+  }
+}
+
+//________________________________________________________________________________
+void MatLayerCylSet::populateFromTGeo(int ntrPerCel)
+{
+  ///< populate layers
+  if (!gGeoManager || !gGeoManager->IsClosed()) {
+    LOG(ERROR) << "No active geometry or geometry not yet closed!" << FairLogger::endl;
+    return;
+  }
+  for (int i=0;i<getNLayers();i++) {
+    LOG(INFO)<<"populating layer " << i << FairLogger::endl;
+    mLayers[i].populateFromTGeo(ntrPerCel);
+  }
+}
+ 
 /**********************************************************************
  *                                                                    *
  * Ray parameterized via its endpoints as                             *
