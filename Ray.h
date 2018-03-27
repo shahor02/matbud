@@ -7,6 +7,8 @@
 #include "MathUtils/Utils.h"
 #include <TGeoManager.h>
 #include "DetectorsBase/GeometryManager.h"
+#include "CommonUtils/TreeStreamRedirector.h"
+
 
 #include <FairLogger.h>
 
@@ -128,6 +130,8 @@ class MatLayerCylSet {
 
   void print() const;
   void populateFromTGeo(int ntrPerCel=10);
+
+  void DumpToTree(const std::string outName = "matBudTree.root") const;
   
  protected:
   vector<MatLayerCyl> mLayers; ///< set of cylinrical layers
@@ -254,7 +258,31 @@ void MatLayerCylSet::populateFromTGeo(int ntrPerCel)
     mLayers[i].populateFromTGeo(ntrPerCel);
   }
 }
- 
+
+//________________________________________________________________________________
+void MatLayerCylSet::DumpToTree(const std::string outName) const
+{
+  o2::utils::TreeStreamRedirector dump(outName.data(),"recreate");
+  for (int i=0;i<getNLayers();i++) {
+    const auto & lr = getLayer(i);
+    float r = 0.5*(lr.getRMin()+lr.getRMax());
+    for (int ip=0;ip<lr.getNPhiSlices();ip++) {
+      float phi = 0.5*( lr.getPhiSliceMin(ip)+lr.getPhiSliceMax(ip) );
+      float sn,cs;
+      o2::utils::sincosf(phi,sn,cs);
+      float x = r*cs, y = r*sn;
+      for (int iz=0;iz<lr.getNZSlices();iz++) {
+	float z = 0.5*( lr.getZSliceMin(ip)+lr.getZSliceMax(ip) );
+	auto cell = lr.getCell(ip,iz);
+	dump<<"mat"<<"lr="<<i<<"r="<<r<<"phi="<<phi<<"x="<<x<<"y="<<y<<"z="<<z<<"ip="<<ip<<"iz="<<iz<<
+	  "rho="<<cell.mRhoAv<<"rl="<<cell.mX2X0<<"\n";
+      }
+    }
+    
+  }
+}
+
+
 /**********************************************************************
  *                                                                    *
  * Ray parameterized via its endpoints as                             *
