@@ -23,8 +23,9 @@
 
 struct MatCell {
   static constexpr int NParams = 2; // number of material parameters stored
-  float mRhoAv = 0.f;    ///< 
+  float mRho = 0.f;    ///< 
   float mX2X0  = 0.f;    ///<
+  ClassDefNV(MatCell,1);
 };
 
 
@@ -38,6 +39,7 @@ class MatLayerCyl {
  public:
   MatLayerCyl() = default;
   MatLayerCyl(float rMin,float rMax,float zMin,float zMax,short nz,short nphi);
+  MatLayerCyl(float rMin,float rMax,float zHalfSpan, float dzMin,float drphiMin);
   ~MatLayerCyl() = default;
   
   // ----------------------- segmentation 
@@ -88,6 +90,9 @@ class MatLayerCyl {
   float getPhiSliceMax(int id)         const {return (id+1)*mDPhi;}
   
   const std::vector<MatCell> & getCells() const {return mCells;}
+
+  void getMeanRMS(MatCell &mean, MatCell &rms) const;
+  
  protected:
   
 
@@ -146,6 +151,17 @@ MatLayerCyl::MatLayerCyl(float rMin,float rMax,float zMin,float zMax,short nz,sh
 {
   // main constructor
   initSegmentation(rMin,rMax,zMin,zMax,nz,nphi);
+}
+
+//________________________________________________________________________________
+MatLayerCyl::MatLayerCyl(float rMin,float rMax,float zHalfSpan, float dzMin,float drphiMin)
+{
+  // main constructor
+  if (dzMin<0.001f) dzMin = 0.001f;
+  if (drphiMin<0.001f) drphiMin = 0.001f;
+  float peri = (rMax+rMin)*o2::constants::math::PI;
+  int nz = 2*zHalfSpan/dzMin, nphi = peri/drphiMin;
+  initSegmentation(rMin,rMax,-zHalfSpan,zHalfSpan, nz>0 ? nz:1, nphi>0 ? nphi:1);
 }
 
 //________________________________________________________________________________
@@ -210,7 +226,7 @@ void MatLayerCyl::populateFromTGeo(int ip, int iz, int ntrPerCell)
   }
   if (lgt>0.) {
     auto &cell = getCell(ip,iz);
-    cell.mRhoAv = meanRho/lgt;
+    cell.mRho = meanRho/lgt;
     cell.mX2X0 = meanX2X0/lgt;
   }  
 }
@@ -224,7 +240,7 @@ void MatLayerCyl::print() const
     printf("phi slice: %d (%.4f:%.4f) ... [iz/<rho>/<x/x0>] \n",ip,mDPhi*ip,mDPhi*(ip+1));
     for (int iz=0;iz<mNZSlices;iz++) {
       auto cell = getCell(ip,iz);
-      printf("%3d/%.2e/%.2e ",iz,cell.mRhoAv,cell.mX2X0);
+      printf("%3d/%.2e/%.2e ",iz,cell.mRho,cell.mX2X0);
       if (((iz+1)%5)==0) {
 	printf("\n");
       }
@@ -234,6 +250,33 @@ void MatLayerCyl::print() const
     }
   }
 }
+
+//________________________________________________________________________________
+void MatLayerCyl::getMeanRMS(MatCell &mean, MatCell &rms) const
+{
+  // mean and RMS over layer
+  mean.mRho = rms.mRho = 0.f;
+  mean.mX2X0 = rms.mX2X0 = 0.f;
+  for (int ip=mNPhiSlices;ip--;) {
+    for (int iz=mNZSlices;iz--;) {
+      const auto& cell = getCell(ip,iz);
+      mean.mRho += cell.mRho;
+      mean.mX2X0 += cell.mX2X0;
+      rms.mRho += cell.mRho*cell.mRho;
+      rms.mX2X0 += cell.mX2X0*cell.mX2X0;
+    }
+  }
+  int nc = mNPhiSlices*mNZSlices;
+  mean.mRho /= nc;
+  mean.mX2X0 /= nc;  
+  rms.mRho /= nc;
+  rms.mX2X0 /= nc;  
+  rms.mRho -= mean.mRho*mean.mRho;
+  rms.mX2X0 -= mean.mX2X0*mean.mX2X0;
+  rms.mRho = rms.mRho>0.f ? std::sqrt(rms.mRho) : 0.f;
+  rms.mX2X0 = rms.mX2X0>0.f ? std::sqrt(rms.mX2X0) : 0.f;  
+}
+
 
 //==========================================================
 //________________________________________________________________________________
@@ -254,7 +297,8 @@ void MatLayerCylSet::populateFromTGeo(int ntrPerCel)
     return;
   }
   for (int i=0;i<getNLayers();i++) {
-    LOG(INFO)<<"populating layer " << i << FairLogger::endl;
+    int nz = mLayers[i].getNZSlices(), np = mLayers[i].getNPhiSlices();
+    LOG(INFO)<<"populating layer " << i << " NZ: "<<nz<<" NPhi: "<<np<<FairLogger::endl;
     mLayers[i].populateFromTGeo(ntrPerCel);
   }
 }
@@ -266,19 +310,24 @@ void MatLayerCylSet::DumpToTree(const std::string outName) const
   for (int i=0;i<getNLayers();i++) {
     const auto & lr = getLayer(i);
     float r = 0.5*(lr.getRMin()+lr.getRMax());
+    // per cell dump
     for (int ip=0;ip<lr.getNPhiSlices();ip++) {
       float phi = 0.5*( lr.getPhiSliceMin(ip)+lr.getPhiSliceMax(ip) );
       float sn,cs;
       o2::utils::sincosf(phi,sn,cs);
       float x = r*cs, y = r*sn;
       for (int iz=0;iz<lr.getNZSlices();iz++) {
-	float z = 0.5*( lr.getZSliceMin(ip)+lr.getZSliceMax(ip) );
+	float z = 0.5*( lr.getZSliceMin(iz)+lr.getZSliceMax(iz) );
 	auto cell = lr.getCell(ip,iz);
-	dump<<"mat"<<"lr="<<i<<"r="<<r<<"phi="<<phi<<"x="<<x<<"y="<<y<<"z="<<z<<"ip="<<ip<<"iz="<<iz<<
-	  "rho="<<cell.mRhoAv<<"rl="<<cell.mX2X0<<"\n";
+	dump<<"cell"<<"ilr="<<i<<"r="<<r<<"phi="<<phi<<"x="<<x<<"y="<<y<<"z="<<z<<"ip="<<ip<<"iz="<<iz<<
+	  "val="<<cell<<"\n";
       }
     }
-    
+    //
+    // statistics per layer
+    MatCell mean,rms;
+    lr.getMeanRMS(mean,rms);
+    dump<<"lay"<<"ilr="<<i<<"r="<<r<<"mean="<<mean<<"rms="<<rms<<"\n";
   }
 }
 
