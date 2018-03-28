@@ -11,4 +11,8 @@ void tst(float rmin=0,float rmax=50,int nr=50, float zmax=50, float dz=1.f, floa
     r += dr;
   }
   st.populateFromTGeo(5);
+
+  TFile stf("mb.root","recreate");
+  stf.WriteObjectAny(&st, st.Class(), "matBud");
+  stf.Close();
 }

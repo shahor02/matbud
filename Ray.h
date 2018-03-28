@@ -6,6 +6,7 @@
 #include "CommonConstants/MathConstants.h"
 #include "MathUtils/Utils.h"
 #include <TGeoManager.h>
+#include <TFile.h>
 #include "DetectorsBase/GeometryManager.h"
 #include "CommonUtils/TreeStreamRedirector.h"
 
@@ -33,10 +34,16 @@ struct MatCell {
  *                                                                    *
  * Cylindrical material layer                                         *
  *                                                                    *
+ * Logical division is given by mNZBins and mNPhiBins                 *
+ * but the actual number phi slices might be less if neighbouring     *
+ * phi bins with similar properties are merged together. The actual   *
+ * phi slice should be accessed via mPhiBin2Slice map.                *
+ *                                                                    *
  **********************************************************************/
 class MatLayerCyl {
 
  public:
+
   MatLayerCyl() = default;
   MatLayerCyl(float rMin,float rMax,float zMin,float zMax,short nz,short nphi);
   MatLayerCyl(float rMin,float rMax,float zHalfSpan, float dzMin,float drphiMin);
@@ -48,46 +55,53 @@ class MatLayerCyl {
   float getRMax()        const {return mRMax;}
   float getZMin()        const {return mZMin;}
   float getZMax()        const {return mZMax;}
-  int   getNZSlices()    const {return mNZSlices;}
-  int   getNPhiSlices()  const {return mNPhiSlices;}
-
+  short getNZBins()      const {return mNZBins;}
+  short getNPhiBins()    const {return mNPhiBins;}
+  // actual number of phi slices stored
+  short getNPhiSlices()  const {return mNPhiSlices;}
+  short getNPhiBinsInSlice(int i) const;
+  
   float getRMin2()       const {return mRMin2;}
   float getRMax2()       const {return mRMax2;}
 
   void print() const;
   void populateFromTGeo(int ntrPerCell=10);
-  void populateFromTGeo(int ip, int iz, int ntrPerCell);
+  void populateFromTGeo(short ip, short iz, int ntrPerCell);
   
   // linearized cell ID
-  int getCellID(int iphi,int iz)       const {return iphi*mNZSlices + iz;}
+  int getCellID(short iphi,short iz) const {
+    return int(phiBin2Slice(iphi))*mNZBins + iz;
+  }
   
   // obtain material cell, cell ID must be valid
-  const MatCell& getCell(int iphi, int iz)   const {return mCells[getCellID(iphi,iz)];}
-  MatCell& getCell(int iphi, int iz)               {return mCells[getCellID(iphi,iz)];}
+  const MatCell& getCell(short iphi, short iz)  const {return mCells[getCellID(iphi,iz)];}
+  MatCell& getCell(short iphi, short iz)              {return mCells[getCellID(iphi,iz)];}
   
   // ---------------------- Z slice manipulation
   // convert Z to Zslice
-  int getZSliceID(float z)             const {return z>mZMin && z<mZMax ? int((z-mZMin)*mDZInv) : -1;}
+  int getZBinID(float z)        const {return z>mZMin && z<mZMax ? int((z-mZMin)*mDZInv) : -1;}
 
   // lower boundary of Z slice
-  float getZSliceMin(int id)           const {return mZMin + id*mDZ;}
+  float getZBinMin(short id)  const {return mZMin + id*mDZ;}
 
   // upper boundary of Z slice
-  float getZSliceMax(int id)           const {return mZMin + (id+1)*mDZ;}
+  float getZBinMax(short id)  const {return mZMin + (id+1)*mDZ;}
 
   // ---------------------- Phi slice manipulation (0:2pi convention, no check is done)
-  // convert Phi to Zslice
-  int getPhiSliceID(float phi)         const {
+  // convert Phi (in 0:2pi convention) to PhiBinID
+  short getPhiBinID(float phi)  const {
     assert(phi>=0.f); // temporary, to remove
-    //    BringTo02Pi(phi);
-    return phi*mDPhiInv;
+    return short(phi*mDPhiInv);
   }
+  short phiBin2Slice(short i)    const {return mPhiBin2Slice[i];}
+  short getPhiSliceID(float phi)   const { return phiBin2Slice(getPhiBinID(phi));}
+  short getNPhiBinsInSlice(short iSlice, short &binMin, short &binMax) const;
   
   // lower boundary of phi slice
-  float getPhiSliceMin(int id)         const {return id*mDPhi;}
+  float getPhiBinMin(short id)     const {return id*mDPhi;}
 
   // upper boundary of phi slice
-  float getPhiSliceMax(int id)         const {return (id+1)*mDPhi;}
+  float getPhiBinMax(short id)     const {return (id+1)*mDPhi;}
   
   const std::vector<MatCell> & getCells() const {return mCells;}
 
@@ -95,14 +109,13 @@ class MatLayerCyl {
   
  protected:
   
-
-  
   float mRMin = 0.f;       ///< min radius
   float mRMax = 0.f;       ///< max radius
   float mZMin = 0.f;       ///< min Z
   float mZMax = 0.f;       ///< max
-  short mNZSlices = 0;       ///< number of Z slices
-  short mNPhiSlices = 0;     ///< number of phi slices
+  short mNZBins = 0;       ///< number of Z bins
+  short mNPhiBins = 0;     ///< number of phi bins (logical)
+  short mNPhiSlices = 0;   ///< actual number of phi slices
   //
   // auxiliary varaibles
   float mRMin2 = 0.f;      ///< squared min r
@@ -112,6 +125,7 @@ class MatLayerCyl {
   float mDPhi = 0.f;       ///< phi slice thickness
   float mDPhiInv = 0.f;    ///< phi slice thickness inverse
 
+  std::vector<short> mPhiBin2Slice; ///< mapping from analytical phi bin ID to real slice ID
   std::vector<MatCell> mCells; ///< vector of mat.budget per cell
   
   ClassDefNV(MatLayerCyl,1);
@@ -137,6 +151,9 @@ class MatLayerCylSet {
   void populateFromTGeo(int ntrPerCel=10);
 
   void DumpToTree(const std::string outName = "matBudTree.root") const;
+
+  void writeToFile(std::string outFName = "matBudg.root", std::string name = "MatBud");
+  static MatLayerCylSet* loadFromFile(std::string inpFName = "matBudg.root", std::string name = "MatBud");
   
  protected:
   vector<MatLayerCyl> mLayers; ///< set of cylinrical layers
@@ -172,25 +189,44 @@ void MatLayerCyl::initSegmentation(float rMin,float rMax,float zMin,float zMax,s
   mRMax = rMax;
   mZMin = zMin;
   mZMax = zMax;
-  mNZSlices = nz;
-  mNPhiSlices = nphi;
+  mNZBins = nz;
+  mNPhiBins = nphi;
   
   assert(mRMin<mRMax);
   assert(mZMin<mZMax);
-  assert(mNZSlices>0);
-  assert(mNPhiSlices>0);
+  assert(mNZBins>0);
+  assert(mNPhiBins>0);
 
   mRMin2 = mRMin*mRMin;
   mRMax2 = mRMax*mRMax;
   
-  mDZ = (mZMax-mZMin) / mNZSlices;
+  mDZ = (mZMax-mZMin) / mNZBins;
   mDZInv = 1.f/mDZInv;
 
-  mDPhi = o2::constants::math::TwoPI / mNPhiSlices;
+  mDPhi = o2::constants::math::TwoPI / mNPhiBins;
   mDPhiInv = 1.f/mDPhiInv;
   //
-  int nCells = mNZSlices*mNPhiSlices;
+  mNPhiSlices = mNPhiBins;
+  mPhiBin2Slice.resize(mNPhiBins);
+  int nCells = int(mNZBins)*mNPhiSlices;
   mCells.resize(nCells);
+}
+
+//________________________________________________________________________________
+inline short MatLayerCyl::getNPhiBinsInSlice(short iSlice, short &binMin, short &binMax) const
+{
+  // slow method to get number of phi bins for given phi slice
+  short nb = binMin = binMax = 0;
+  for (int ib=mNPhiBins;ib--;) {
+    if (mPhiBin2Slice[ib]!=iSlice) {
+      if (nb) {
+	break;
+      }
+      continue; // no more bins since they are consecutive
+    }
+    nb++ ? (binMin = ib) : (binMax = ib);
+  }
+  return nb;
 }
 
 //________________________________________________________________________________
@@ -198,19 +234,19 @@ void MatLayerCyl::populateFromTGeo(int ntrPerCell)
 {
   /// populate layer with info extracted from TGeometry
   ntrPerCell = ntrPerCell>1 ? ntrPerCell : 1;
-  for (int iz=mNZSlices;iz--;) {
-    for (int ip=mNPhiSlices;ip--;) {
+  for (int iz=mNZBins;iz--;) {
+    for (int ip=mNPhiBins;ip--;) {
       populateFromTGeo(ip, iz ,ntrPerCell);
     }
   }
 }
 
 //________________________________________________________________________________
-void MatLayerCyl::populateFromTGeo(int ip, int iz, int ntrPerCell)
+void MatLayerCyl::populateFromTGeo(short ip, short iz, int ntrPerCell)
 {
   /// populate cell with info extracted from TGeometry
   
-  float zmn = getZSliceMin(iz), phmn = getPhiSliceMin(ip), sn,cs;
+  float zmn = getZBinMin(iz), phmn = getPhiBinMin(ip), sn,cs;
   double meanRho = 0., meanX2X0 = 0., lgt = 0.;;
   for (int isz=ntrPerCell;isz--;) {
     float zs = zmn + (isz+0.5)*mDZ/ntrPerCell;
@@ -235,17 +271,20 @@ void MatLayerCyl::populateFromTGeo(int ip, int iz, int ntrPerCell)
 void MatLayerCyl::print() const
 {
   ///< print layer data
-  printf("Cyl.Layer %.3f<r<%.3f %+.3f<Z<%+.3f | Nphi: %5d Nz: %5d\n",mRMin,mRMax,mZMin,mZMax,mNPhiSlices,mNZSlices);
-  for (int ip=0;ip<mNPhiSlices;ip++) {
-    printf("phi slice: %d (%.4f:%.4f) ... [iz/<rho>/<x/x0>] \n",ip,mDPhi*ip,mDPhi*(ip+1));
-    for (int iz=0;iz<mNZSlices;iz++) {
-      auto cell = getCell(ip,iz);
+  printf("Cyl.Layer %.3f<r<%.3f %+.3f<Z<%+.3f | Nphi: %5d (%d slices) Nz: %5d\n",
+	 mRMin,mRMax,mZMin,mZMax,mNPhiBins, getNPhiSlices() ,mNZBins);
+  for (int ip=0;ip<getNPhiSlices();ip++) {
+    short ib0,ib1;
+    short nb = getNPhiBinsInSlice(ip,ib0,ib1);
+    printf("phi slice: %d (bins %d-%d %.4f:%.4f) ... [iz/<rho>/<x/x0>] \n",ip,ib0,ib1,mDPhi*ib0,mDPhi*(ib1+1));
+    for (int iz=0;iz<mNZBins;iz++) {
+      auto cell = getCell(ib0,iz);
       printf("%3d/%.2e/%.2e ",iz,cell.mRho,cell.mX2X0);
       if (((iz+1)%5)==0) {
 	printf("\n");
       }
     }
-    if (mNZSlices%5) {
+    if (mNZBins%5) {
       printf("\n");
     }
   }
@@ -257,8 +296,8 @@ void MatLayerCyl::getMeanRMS(MatCell &mean, MatCell &rms) const
   // mean and RMS over layer
   mean.mRho = rms.mRho = 0.f;
   mean.mX2X0 = rms.mX2X0 = 0.f;
-  for (int ip=mNPhiSlices;ip--;) {
-    for (int iz=mNZSlices;iz--;) {
+  for (int ip=mNPhiBins;ip--;) {
+    for (int iz=mNZBins;iz--;) {
       const auto& cell = getCell(ip,iz);
       mean.mRho += cell.mRho;
       mean.mX2X0 += cell.mX2X0;
@@ -266,7 +305,7 @@ void MatLayerCyl::getMeanRMS(MatCell &mean, MatCell &rms) const
       rms.mX2X0 += cell.mX2X0*cell.mX2X0;
     }
   }
-  int nc = mNPhiSlices*mNZSlices;
+  int nc = mNPhiBins*mNZBins;
   mean.mRho /= nc;
   mean.mX2X0 /= nc;  
   rms.mRho /= nc;
@@ -297,7 +336,7 @@ void MatLayerCylSet::populateFromTGeo(int ntrPerCel)
     return;
   }
   for (int i=0;i<getNLayers();i++) {
-    int nz = mLayers[i].getNZSlices(), np = mLayers[i].getNPhiSlices();
+    int nz = mLayers[i].getNZBins(), np = mLayers[i].getNPhiBins();
     LOG(INFO)<<"populating layer " << i << " NZ: "<<nz<<" NPhi: "<<np<<FairLogger::endl;
     mLayers[i].populateFromTGeo(ntrPerCel);
   }
@@ -306,18 +345,20 @@ void MatLayerCylSet::populateFromTGeo(int ntrPerCel)
 //________________________________________________________________________________
 void MatLayerCylSet::DumpToTree(const std::string outName) const
 {
+  /// dump per cell info to the tree
+  
   o2::utils::TreeStreamRedirector dump(outName.data(),"recreate");
   for (int i=0;i<getNLayers();i++) {
     const auto & lr = getLayer(i);
     float r = 0.5*(lr.getRMin()+lr.getRMax());
     // per cell dump
-    for (int ip=0;ip<lr.getNPhiSlices();ip++) {
-      float phi = 0.5*( lr.getPhiSliceMin(ip)+lr.getPhiSliceMax(ip) );
+    for (int ip=0;ip<lr.getNPhiBins();ip++) {
+      float phi = 0.5*( lr.getPhiBinMin(ip)+lr.getPhiBinMax(ip) );
       float sn,cs;
       o2::utils::sincosf(phi,sn,cs);
       float x = r*cs, y = r*sn;
-      for (int iz=0;iz<lr.getNZSlices();iz++) {
-	float z = 0.5*( lr.getZSliceMin(iz)+lr.getZSliceMax(iz) );
+      for (int iz=0;iz<lr.getNZBins();iz++) {
+	float z = 0.5*( lr.getZBinMin(iz)+lr.getZBinMax(iz) );
 	auto cell = lr.getCell(ip,iz);
 	dump<<"cell"<<"ilr="<<i<<"r="<<r<<"phi="<<phi<<"x="<<x<<"y="<<y<<"z="<<z<<"ip="<<ip<<"iz="<<iz<<
 	  "val="<<cell<<"\n";
@@ -329,6 +370,40 @@ void MatLayerCylSet::DumpToTree(const std::string outName) const
     lr.getMeanRMS(mean,rms);
     dump<<"lay"<<"ilr="<<i<<"r="<<r<<"mean="<<mean<<"rms="<<rms<<"\n";
   }
+}
+
+//________________________________________________________________________________
+void MatLayerCylSet::writeToFile(std::string outFName, std::string name)
+{
+  /// store to file
+  
+  TFile outf(outFName.data(), "recreate");
+  if (outf.IsZombie()) {
+    return;
+  }
+  if (name.empty()) {
+    name = "matBud";
+  }
+  outf.WriteObjectAny(this, Class(), name.data());
+  outf.Close();
+}
+
+//________________________________________________________________________________
+MatLayerCylSet* MatLayerCylSet::loadFromFile(std::string inpFName, std::string name)
+{
+  if (name.empty()) {
+    name = "MatBud";
+  }
+  TFile inpf(inpFName.data());
+  if (inpf.IsZombie()) {
+    LOG(ERROR) << "Failed to open input file " << inpFName << FairLogger::endl;
+    return nullptr;
+  }
+  MatLayerCylSet* mb = reinterpret_cast<MatLayerCylSet*>(inpf.GetObjectChecked(name.data(),Class()));
+  if (!mb) {
+    LOG(ERROR) << "Failed to load " << name << " from " << inpFName << FairLogger::endl;
+  }
+  return mb;
 }
 
 
