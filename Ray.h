@@ -106,6 +106,11 @@ class MatLayerCyl {
   const std::vector<MatCell> & getCells() const {return mCells;}
 
   void getMeanRMS(MatCell &mean, MatCell &rms) const;
+
+
+  bool cellsDiffer(const MatCell& cellA, const MatCell& cellB, float maxRelDiff) const;
+  bool canMergePhiSlices(int i,int j, float maxRelDiff=0.05, int maxDifferent=1) const;
+  void mergePhiSlices(float maxRelDiff=0.05);
   
  protected:
   
@@ -150,7 +155,7 @@ class MatLayerCylSet {
   void print() const;
   void populateFromTGeo(int ntrPerCel=10);
 
-  void DumpToTree(const std::string outName = "matBudTree.root") const;
+  void dumpToTree(const std::string outName = "matBudTree.root") const;
 
   void writeToFile(std::string outFName = "matBudg.root", std::string name = "MatBud");
   static MatLayerCylSet* loadFromFile(std::string inpFName = "matBudg.root", std::string name = "MatBud");
@@ -210,21 +215,26 @@ void MatLayerCyl::initSegmentation(float rMin,float rMax,float zMin,float zMax,s
   mPhiBin2Slice.resize(mNPhiBins);
   int nCells = int(mNZBins)*mNPhiSlices;
   mCells.resize(nCells);
+  for (int i=mNPhiSlices;i--;) {
+    mPhiBin2Slice[i] = i; // fill with trivial mapping
+  }
 }
 
 //________________________________________________________________________________
 inline short MatLayerCyl::getNPhiBinsInSlice(short iSlice, short &binMin, short &binMax) const
 {
   // slow method to get number of phi bins for given phi slice
-  short nb = binMin = binMax = 0;
+  int nb = 0;
+  binMin = binMax = -1;
   for (int ib=mNPhiBins;ib--;) {
-    if (mPhiBin2Slice[ib]!=iSlice) {
-      if (nb) {
-	break;
-      }
-      continue; // no more bins since they are consecutive
+    if (mPhiBin2Slice[ib]==iSlice) {
+      binMax<0 ? binMin = binMax=ib : binMin=ib;
+      nb++;
+      continue;
     }
-    nb++ ? (binMin = ib) : (binMax = ib);
+    if (binMax>=0) {
+      break; // no more bins since they are consecutive
+    }
   }
   return nb;
 }
@@ -267,6 +277,76 @@ void MatLayerCyl::populateFromTGeo(short ip, short iz, int ntrPerCell)
   }  
 }
 
+//________________________________________________________________________________
+bool MatLayerCyl::canMergePhiSlices(int i,int j, float maxRelDiff, int maxDifferent) const
+{
+  if (std::abs(i-j)>1 || i==j || std::max(i,j)>=mNPhiSlices) {
+    LOG(ERROR)<<"Only existing "<<mNPhiSlices<<" slices with difference of 1 can be merged, input is "
+	      <<i<<" and "<<FairLogger::endl;
+    return false;
+  }
+  int ndiff = 0; // number of different cells
+  for (int iz=getNZBins();iz--;) {
+    const auto &cellI = getCell(i,iz);
+    const auto &cellJ = getCell(j,iz);
+    if (cellsDiffer(cellI, cellJ, maxRelDiff)) {
+      if (++ndiff>maxDifferent) {
+	return false;
+      }
+    }
+  }
+  return true;
+}
+
+//________________________________________________________________________________
+bool MatLayerCyl::cellsDiffer(const MatCell& cellA, const MatCell& cellB, float maxRelDiff) const
+{
+  /// check if the cells content is different within the tolerance
+  float rav = 0.5*(cellA.mRho + cellB.mRho), xav = 0.5*(cellA.mX2X0 + cellB.mX2X0);
+  float rdf = 0.5*(cellA.mRho - cellB.mRho), xdf = 0.5*(cellA.mX2X0 - cellB.mX2X0);
+  if (rav>0 && std::abs(rdf/rav)>maxRelDiff) return true;
+  if (xav>0 && std::abs(xdf/xav)>maxRelDiff) return true;
+  return false;
+}
+
+//________________________________________________________________________________
+void MatLayerCyl::mergePhiSlices(float maxRelDiff)
+{
+  // merge compatible phi slices
+  if (mNPhiSlices<mNPhiBins) {
+    LOG(ERROR)<<mNPhiBins<<" phi bins were already merged to "<<mNPhiSlices<<" slices"<<FairLogger::endl;
+    return;
+  }
+  short newSl = 0;
+  for (int is=1;is<mNPhiSlices;is++) {
+    if (!canMergePhiSlices(is-1,is,maxRelDiff)) {
+      newSl++;
+    }
+    mPhiBin2Slice[is] = newSl;
+  }
+  LOG(INFO)<<newSl+1<<" slices out of "<<mNPhiBins<<FairLogger::endl;
+  if (newSl+1==mNPhiSlices) {
+    return;
+  }
+  newSl = 0;
+  short slMin=0,slMax=0, is=0;
+  while (is++<mNPhiSlices) {
+    while (is<mNPhiSlices && mPhiBin2Slice[is]==newSl) { // select similar slices 
+      slMax++;
+      is++;
+    }
+    if (slMax>slMin || newSl!=slMin) {  // merge or shift slices
+      mCells[newSl] = mCells[slMin];
+      LOG(INFO)<<"merging "<<slMin<<":"<<slMax<<" to new slice "<<newSl<<FairLogger::endl;
+    }
+    newSl++;
+    slMin = slMax = is;
+  }
+  mNPhiSlices = newSl;
+  LOG(INFO)<<"Updated Nslices = "<<mNPhiSlices<<FairLogger::endl;
+  mCells.resize(mNPhiSlices);
+}
+  
 //________________________________________________________________________________
 void MatLayerCyl::print() const
 {
@@ -343,7 +423,7 @@ void MatLayerCylSet::populateFromTGeo(int ntrPerCel)
 }
 
 //________________________________________________________________________________
-void MatLayerCylSet::DumpToTree(const std::string outName) const
+void MatLayerCylSet::dumpToTree(const std::string outName) const
 {
   /// dump per cell info to the tree
   
@@ -352,16 +432,25 @@ void MatLayerCylSet::DumpToTree(const std::string outName) const
     const auto & lr = getLayer(i);
     float r = 0.5*(lr.getRMin()+lr.getRMax());
     // per cell dump
-    for (int ip=0;ip<lr.getNPhiBins();ip++) {
+    char merge = 0;
+    int nphib = lr.getNPhiBins();
+    for (int ip=0;ip<nphib;ip++) {
       float phi = 0.5*( lr.getPhiBinMin(ip)+lr.getPhiBinMax(ip) );
       float sn,cs;
+      int ips = lr.phiBin2Slice(ip);
+      merge = 0; // not mergeable
+      if (ip+1<nphib) {
+	int ips1 = lr.phiBin2Slice(ip+1);
+	merge = ips==ips1 ? -1 : lr.canMergePhiSlices(ips,ips1);
+      }
+      else merge = -2; // last one
       o2::utils::sincosf(phi,sn,cs);
       float x = r*cs, y = r*sn;
       for (int iz=0;iz<lr.getNZBins();iz++) {
 	float z = 0.5*( lr.getZBinMin(iz)+lr.getZBinMax(iz) );
 	auto cell = lr.getCell(ip,iz);
-	dump<<"cell"<<"ilr="<<i<<"r="<<r<<"phi="<<phi<<"x="<<x<<"y="<<y<<"z="<<z<<"ip="<<ip<<"iz="<<iz<<
-	  "val="<<cell<<"\n";
+	dump<<"cell"<<"ilr="<<i<<"r="<<r<<"phi="<<phi<<"x="<<x<<"y="<<y<<"z="<<z<<"ip="<<ip<<"ips="<<ips<<"iz="<<iz
+	    <<"mrgnxt="<<merge<<"val="<<cell<<"\n";
       }
     }
     //
