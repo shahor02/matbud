@@ -24,8 +24,25 @@
 
 struct MatCell {
   static constexpr int NParams = 2; // number of material parameters stored
-  float mRho = 0.f;    ///< 
-  float mX2X0  = 0.f;    ///<
+  float mRho = 0.f;      ///< mean density, g/cm^3
+  float mX2X0  = 0.f;    ///< fraction of radiaton lenght
+  MatCell operator+(const MatCell& rhs) {
+    MatCell cell;
+    cell.mRho = this->mRho + rhs.mRho;
+    cell.mX2X0 = this->mX2X0 + rhs.mX2X0;
+    return cell;
+  }
+  MatCell& operator+=(const MatCell& rhs) {
+    mRho += rhs.mRho;
+    mX2X0 += rhs.mX2X0;
+    return *this;
+  }
+  void scale(float scale) {
+    mRho *= scale;
+    mX2X0 *= scale;
+  }
+
+  
   ClassDefNV(MatCell,1);
 };
 
@@ -64,7 +81,7 @@ class MatLayerCyl {
   float getRMin2()       const {return mRMin2;}
   float getRMax2()       const {return mRMax2;}
 
-  void print() const;
+  void print(bool data=false) const;
   void populateFromTGeo(int ntrPerCell=10);
   void populateFromTGeo(short ip, short iz, int ntrPerCell);
   
@@ -110,7 +127,10 @@ class MatLayerCyl {
 
   bool cellsDiffer(const MatCell& cellA, const MatCell& cellB, float maxRelDiff) const;
   bool canMergePhiSlices(int i,int j, float maxRelDiff=0.05, int maxDifferent=1) const;
-  void mergePhiSlices(float maxRelDiff=0.05);
+  void optimizePhiSlices(float maxRelDiff=0.05);
+  std::size_t getSize() const {
+    return sizeof(*this) + getNPhiBins()*sizeof(short) + getNPhiSlices()*getNZBins()*sizeof(MatCell);
+  }
   
  protected:
   
@@ -152,13 +172,17 @@ class MatLayerCylSet {
   const MatLayerCyl& getLayer(int i) const {return mLayers[i];}
   vector<MatLayerCyl>& getLayers() {return mLayers;}
 
-  void print() const;
+  void print(bool data=false) const;
   void populateFromTGeo(int ntrPerCel=10);
 
   void dumpToTree(const std::string outName = "matBudTree.root") const;
 
   void writeToFile(std::string outFName = "matBudg.root", std::string name = "MatBud");
   static MatLayerCylSet* loadFromFile(std::string inpFName = "matBudg.root", std::string name = "MatBud");
+
+  void optimizePhiSlices(float maxRelDiff=0.05);
+
+  std::size_t getSize() const;
   
  protected:
   vector<MatLayerCyl> mLayers; ///< set of cylinrical layers
@@ -310,7 +334,7 @@ bool MatLayerCyl::cellsDiffer(const MatCell& cellA, const MatCell& cellB, float 
 }
 
 //________________________________________________________________________________
-void MatLayerCyl::mergePhiSlices(float maxRelDiff)
+void MatLayerCyl::optimizePhiSlices(float maxRelDiff)
 {
   // merge compatible phi slices
   if (mNPhiSlices<mNPhiBins) {
@@ -337,7 +361,11 @@ void MatLayerCyl::mergePhiSlices(float maxRelDiff)
     }
     if (slMax>slMin || newSl!=slMin) {  // merge or shift slices
       mCells[newSl] = mCells[slMin];
-      LOG(INFO)<<"merging "<<slMin<<":"<<slMax<<" to new slice "<<newSl<<FairLogger::endl;
+      for (int ism=slMin+1;ism<=slMax;ism++) {
+	mCells[newSl] += mCells[ism];
+      }
+      mCells[newSl].scale(1.f/(1.f+slMax-slMin));
+      LOG(INFO)<<"mapping "<<slMin<<":"<<slMax<<" to new slice "<<newSl<<FairLogger::endl;
     }
     newSl++;
     slMin = slMax = is;
@@ -348,11 +376,15 @@ void MatLayerCyl::mergePhiSlices(float maxRelDiff)
 }
   
 //________________________________________________________________________________
-void MatLayerCyl::print() const
+void MatLayerCyl::print(bool data) const
 {
   ///< print layer data
-  printf("Cyl.Layer %.3f<r<%.3f %+.3f<Z<%+.3f | Nphi: %5d (%d slices) Nz: %5d\n",
-	 mRMin,mRMax,mZMin,mZMax,mNPhiBins, getNPhiSlices() ,mNZBins);
+  float szkb = float(getSize())/1024;
+  printf("Cyl.Layer %.3f<r<%.3f %+.3f<Z<%+.3f | Nphi: %5d (%d slices) Nz: %5d Size: %.3f KB\n",
+	 mRMin,mRMax,mZMin,mZMax,mNPhiBins, getNPhiSlices() ,mNZBins, szkb);
+  if (!data) {
+    return;
+  }
   for (int ip=0;ip<getNPhiSlices();ip++) {
     short ib0,ib1;
     short nb = getNPhiBinsInSlice(ip,ib0,ib1);
@@ -399,12 +431,20 @@ void MatLayerCyl::getMeanRMS(MatCell &mean, MatCell &rms) const
 
 //==========================================================
 //________________________________________________________________________________
-void MatLayerCylSet::print() const
+void MatLayerCylSet::print(bool data) const
 {
   ///< print layer data
   for (int i=0;i<getNLayers();i++) {
-    mLayers[i].print();
+    printf("#%3d | ",i);
+    mLayers[i].print(data);
   }
+  printf("%d layers with total size %.2f MB\n",getNLayers(),float(getSize())/1024/1024);
+}
+
+void MatLayerCylSet::optimizePhiSlices(float maxRelDiff)
+{
+  // merge similar phi slices
+  for (int i=getNLayers();i--;) mLayers[i].optimizePhiSlices(maxRelDiff);
 }
 
 //________________________________________________________________________________
@@ -420,6 +460,16 @@ void MatLayerCylSet::populateFromTGeo(int ntrPerCel)
     LOG(INFO)<<"populating layer " << i << " NZ: "<<nz<<" NPhi: "<<np<<FairLogger::endl;
     mLayers[i].populateFromTGeo(ntrPerCel);
   }
+}
+
+//________________________________________________________________________________
+std::size_t MatLayerCylSet::getSize() const
+{
+  std::size_t sz = sizeof(*this);
+  for (int i=0;i<getNLayers();i++) {
+    sz += mLayers[i].getSize();
+  }
+  return sz;
 }
 
 //________________________________________________________________________________
@@ -441,7 +491,7 @@ void MatLayerCylSet::dumpToTree(const std::string outName) const
       merge = 0; // not mergeable
       if (ip+1<nphib) {
 	int ips1 = lr.phiBin2Slice(ip+1);
-	merge = ips==ips1 ? -1 : lr.canMergePhiSlices(ips,ips1);
+	merge = ips==ips1 ? -1 : lr.canMergePhiSlices(ips,ips1); // -1 for already merged
       }
       else merge = -2; // last one
       o2::utils::sincosf(phi,sn,cs);
