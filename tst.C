@@ -7,7 +7,7 @@ void tst(float rmin=0,float rmax=50,int nr=50, float zmax=50, float dz=1.f, floa
   float dr = (rmax-rmin)/nr;
   float r=rmin;
   for (int ir=0;ir<nr;ir++) {
-    st.getLayers().emplace_back(r,r+dr, zmax, dz, drphi);
+    st.addLayer(r,r+dr, zmax, dz, drphi);
     r += dr;
   }
   st.populateFromTGeo(5);

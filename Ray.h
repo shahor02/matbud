@@ -169,9 +169,14 @@ class MatLayerCylSet {
   MatLayerCylSet() = default;
   ~MatLayerCylSet() = default;
   int getNLayers() const {return mLayers.size();}
+  void addLayer(float rmin,float rmax, float zmax, float dz, float drphi);
   const MatLayerCyl& getLayer(int i) const {return mLayers[i];}
-  vector<MatLayerCyl>& getLayers() {return mLayers;}
+  const vector<MatLayerCyl>& getLayers() const {return mLayers;}
 
+  float getRMin() const {return mRMin;}
+  float getRMax() const {return mRMax;}
+  float getZMax() const {return mZMax;}
+  
   void print(bool data=false) const;
   void populateFromTGeo(int ntrPerCel=10);
 
@@ -185,6 +190,9 @@ class MatLayerCylSet {
   std::size_t getSize() const;
   
  protected:
+  float mRMin = 0.f; ///< min radius
+  float mRMax = 0.f; ///< max radius
+  float mZMax  =0.f; ///< max Z span
   vector<MatLayerCyl> mLayers; ///< set of cylinrical layers
 
   ClassDefNV(MatLayerCylSet,1);
@@ -430,6 +438,24 @@ void MatLayerCyl::getMeanRMS(MatCell &mean, MatCell &rms) const
 
 
 //==========================================================
+
+//________________________________________________________________________________
+void MatLayerCylSet::addLayer(float rmin,float rmax, float zmax, float dz, float drphi)
+{
+  // add new layer checking for overlaps
+  assert(rmin<rmax && zmax>0 && dz>0 && drphi>0);
+  for (int il=0;il<getNLayers();il++) {
+    const auto &lr = getLayer(il);
+    if (lr.getRMax()>rmin && rmax>lr.getRMin()) {
+      LOG(FATAL)<<"new layer overlaps with layer "<<il<<FairLogger::endl;
+    }
+  }
+  mLayers.emplace_back(rmin,rmax, zmax, dz, drphi);
+  mRMin = mRMin>rmin ? rmin : mRMin;
+  mRMax = mRMax<rmax ? rmax : mRMax;
+  mZMax = mZMax<zmax ? zmax : mZMax;
+}
+
 //________________________________________________________________________________
 void MatLayerCylSet::print(bool data) const
 {
@@ -438,7 +464,7 @@ void MatLayerCylSet::print(bool data) const
     printf("#%3d | ",i);
     mLayers[i].print(data);
   }
-  printf("%d layers with total size %.2f MB\n",getNLayers(),float(getSize())/1024/1024);
+  printf("%.2f < R < %.2d  %d layers with total size %.2f MB\n",mRMin,mRMax,getNLayers(),float(getSize())/1024/1024);
 }
 
 void MatLayerCylSet::optimizePhiSlices(float maxRelDiff)
