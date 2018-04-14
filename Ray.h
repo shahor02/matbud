@@ -13,6 +13,57 @@
 
 #include <FairLogger.h>
 
+class Ray;
+class MatLayerCyl;
+class MatLayerCylSet;
+
+/**********************************************************************
+ *                                                                    *
+ * Ray parameterized via its endpoints as                             *
+ * Vi = Vi0 + t*(Vi1-Vi0), with Vi (i=0,1,2) for global X,Y,Z         *
+ * and 0 < t < 1                                                      *
+ *                                                                    *
+ **********************************************************************/
+
+class Ray {
+  
+ public:
+
+  using CrossPar = std::pair<float,float>;
+  
+  
+  static constexpr float InvalidT = -1e9;
+  static constexpr float Tiny = 1e-9;
+
+  Ray(const Point3D<float> point0,const Point3D<float> point1);
+
+  bool  crossCircleR(float r2, CrossPar& cross) const;
+  int   crossLayerR(const MatLayerCyl& lr, std::array<CrossPar,2>& cross) const;
+  float crossRadial(float cs, float sn) const;
+  float crossZ(float z) const;
+  
+  Point3D<float> getPos(float t) const {
+    return Point3D<float>(mP0.X()+t*mDx,mP0.Y()+t*mDy,mP0.Z()+t*mDz);
+  }
+    
+ private:
+  
+  Point3D<float> mP0;         ///< entrance point
+  Point3D<float> mP1;         ///< exit point 
+  float mDx = 0.f;            ///< X distance
+  float mDy = 0.f;            ///< Y distance
+  float mDz = 0.f;            ///< Z distance
+  float mDist2 = 0.f;         ///< dist^2 between points in XY plane
+  float mDist2i = 0.f;        ///< inverse dist^2 between points in XY plane
+  float mXDxPlusYDy = 0.f;    ///< aux x0*DX+y0*DY
+  float mXDxPlusYDyRed = 0.f; ///< aux (x0*DX+y0*DY)/mDist2
+  float mXDxPlusYDy2 = 0.f;   ///< aux (x0*DX+y0*DY)^2  
+  float mR02 = 0.f;           ///< radius^2 of mP0
+ 
+ ClassDefNV(Ray,1);
+};
+
+
 /**********************************************************************
  *                                                                    *
  * Material data on the cell on cylindrical layer                     *
@@ -157,7 +208,6 @@ class MatLayerCyl {
 };
 
 //==================================================================================
-
 /**********************************************************************
  *                                                                    *
  * Set of cylindrical material layer                                  *
@@ -176,6 +226,8 @@ class MatLayerCylSet {
   float getRMin() const {return mRMin;}
   float getRMax() const {return mRMax;}
   float getZMax() const {return mZMax;}
+  float getRMin2() const {return mRMin2;}
+  float getRMax2() const {return mRMax2;}
   
   void print(bool data=false) const;
   void populateFromTGeo(int ntrPerCel=10);
@@ -188,15 +240,21 @@ class MatLayerCylSet {
   void optimizePhiSlices(float maxRelDiff=0.05);
 
   std::size_t getSize() const;
+
+  MatCell getMatBudget(const Point3D<float> &point0,const Point3D<float> &point1) const;
+  MatCell getMatBudget(float x0, float y0, float z0, float x1, float y1, float z1) const;
   
  protected:
   float mRMin = 0.f; ///< min radius
   float mRMax = 0.f; ///< max radius
   float mZMax  =0.f; ///< max Z span
+  float mRMin2 = 0.f;
+  float mRMax2 = 0.f; 
   vector<MatLayerCyl> mLayers; ///< set of cylinrical layers
 
   ClassDefNV(MatLayerCylSet,1);
 };
+
 
 //==================================================================================
 
@@ -454,6 +512,8 @@ void MatLayerCylSet::addLayer(float rmin,float rmax, float zmax, float dz, float
   mRMin = mRMin>rmin ? rmin : mRMin;
   mRMax = mRMax<rmax ? rmax : mRMax;
   mZMax = mZMax<zmax ? zmax : mZMax;
+  mRMin2 = mRMin*mRMin;
+  mRMax2 = mRMax*mRMax;  
 }
 
 //________________________________________________________________________________
@@ -464,7 +524,7 @@ void MatLayerCylSet::print(bool data) const
     printf("#%3d | ",i);
     mLayers[i].print(data);
   }
-  printf("%.2f < R < %.2d  %d layers with total size %.2f MB\n",mRMin,mRMax,getNLayers(),float(getSize())/1024/1024);
+  printf("%.2f < R < %.2f  %d layers with total size %.2f MB\n",mRMin,mRMax,getNLayers(),float(getSize())/1024/1024);
 }
 
 void MatLayerCylSet::optimizePhiSlices(float maxRelDiff)
@@ -572,54 +632,28 @@ MatLayerCylSet* MatLayerCylSet::loadFromFile(std::string inpFName, std::string n
 }
 
 
-/**********************************************************************
- *                                                                    *
- * Ray parameterized via its endpoints as                             *
- * Vi = Vi0 + t*(Vi1-Vi0), with Vi (i=0,1,2) for global X,Y,Z         *
- * and 0 < t < 1                                                      *
- *                                                                    *
- **********************************************************************/
+//_________________________________________________________________________________________________
+MatCell MatLayerCylSet::getMatBudget(float x0, float y0, float z0, float x1, float y1, float z1) const
+{
+  // get material budget traversed on the line between point0 and point1
+  Point3D<float> point0(x0,y0,z0), point1(x1,y1,z1);
+  return getMatBudget(point0,point1);
+}
 
-class Ray {
-  
- public:
-
-  using CrossPar = std::pair<float,float>;
-  
-  // get material budget
-  void getMatBudget(const MatLayerCyl& lr) const;
-
-  
-  static constexpr float InvalidT = -1e9;
-  static constexpr float Tiny = 1e-9;
-
-  Ray(const Point3D<float> point0,const Point3D<float> point1);
-
-  bool  crossCircleR(float r2, CrossPar& cross) const;
-  int   crossLayerR(const MatLayerCyl& lr, std::array<CrossPar,2>& cross) const;
-  float crossRadial(float cs, float sn) const;
-  float crossZ(float z) const;
-  
-  Point3D<float> getPos(float t) const {
-    return Point3D<float>(mP0.X()+t*mDx,mP0.Y()+t*mDy,mP0.Z()+t*mDz);
+//_________________________________________________________________________________________________
+MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<float> &point1) const
+{
+  // get material budget traversed on the line between point0 and point1
+  MatCell rval;
+  float rmin2 = point0.Perp2(), rmax2 = point1.Perp2();
+  if (rmin2>=getRMax2() || rmax2<=getRMin2()) {
+    return rval;
   }
-    
- private:
-  
-  Point3D<float> mP0;         ///< entrance point
-  Point3D<float> mP1;         ///< exit point 
-  float mDx = 0.f;            ///< X distance
-  float mDy = 0.f;            ///< Y distance
-  float mDz = 0.f;            ///< Z distance
-  float mDist2 = 0.f;         ///< dist^2 between points in XY plane
-  float mDist2i = 0.f;        ///< inverse dist^2 between points in XY plane
-  float mXDxPlusYDy = 0.f;    ///< aux x0*DX+y0*DY
-  float mXDxPlusYDyRed = 0.f; ///< aux (x0*DX+y0*DY)/mDist2
-  float mXDxPlusYDy2 = 0.f;   ///< aux (x0*DX+y0*DY)^2  
-  float mR02 = 0.f;           ///< radius^2 of mP0
- 
- ClassDefNV(Ray,1);
-};
+  Ray ray(point0,point1);
+  return rval;
+}
+
+
 
 //______________________________________________________
 Ray::Ray(const Point3D<float> point0,const Point3D<float> point1)
@@ -719,9 +753,3 @@ inline float Ray::crossZ(float z) const
   return std::abs(mDz)>Tiny ? (z-mP0.Z())/mDz : InvalidT;
 }
 
-
-//______________________________________________________
-void Ray::getMatBudget(const MatLayerCyl& lr) const
-{
-  
-}
