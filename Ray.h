@@ -16,6 +16,8 @@
 
 #include "Rtypes.h"
 #include "MathUtils/Cartesian3D.h"
+#include "MatLayerCyl.h"
+#include "MathUtils/Utils.h"
 #include <array>
 
 /**********************************************************************
@@ -37,17 +39,29 @@ class Ray {
   static constexpr float Tiny = 1e-9;
 
   Ray(const Point3D<float> point0,const Point3D<float> point1);
-
+  
+  int   crossLayer(const MatLayerCyl& lr);
   bool  crossCircleR(float r2, CrossPar& cross) const;
-  int   crossLayerR(float rmin2, float rmax2, std::array<CrossPar,2>& cross) const;
+
+  float crossRadial(const MatLayerCyl& lr, int sliceID) const;
   float crossRadial(float cs, float sn) const;
   float crossZ(float z) const;
+
+  const CrossPar& getCrossParams(int i) const { return mCrossParams[i];}
   
   Point3D<float> getPos(float t) const {
     return Point3D<float>(mP0.X()+t*mDx,mP0.Y()+t*mDy,mP0.Z()+t*mDz);
   }
+
+  float getPhi(float t) const {
+    float p = std::atan2(mP0.Y()+t*mDy,mP0.X()+t*mDx);
+    o2::utils::BringTo02Pi(p);
+    return p;
+  }
   
-  bool validateZRange(CrossPar& cpar, Point3D<float> &p0, Point3D<float> &p1, const MatLayerCyl& lr) const;
+  float getZ(float t) const { return mP0.Z()+t*mDz; }
+  
+  bool validateZRange(CrossPar& cpar, const MatLayerCyl& lr) const;
   
  private:
   
@@ -62,9 +76,9 @@ class Ray {
   float mXDxPlusYDyRed = 0.f; ///< aux (x0*DX+y0*DY)/mDist2
   float mXDxPlusYDy2 = 0.f;   ///< aux (x0*DX+y0*DY)^2  
   float mR02 = 0.f;           ///< radius^2 of mP0
-  std::array<CrossPar,2> mCross; ///< parameters of crossing the layer
-  
- ClassDefNV(Ray,1);
+  std::array<CrossPar,2> mCrossParams; ///< parameters of crossing the layer
+
+  ClassDefNV(Ray,1);
 };
 
 
@@ -84,16 +98,14 @@ inline bool Ray::crossCircleR(float r2, CrossPar& cross) const
 }
 
 //______________________________________________________
-inline int Ray::crossLayerR(float rmin2, float rmax2, std::array<CrossPar,2>& cross) const
+inline int Ray::crossLayer(const MatLayerCyl& lr)
 {
-  // Calculate parameters t of intersection with cyl.layer of rmin^2 and rmax^2.
-  // It is assumed rmin<rmax (not checked)
-  // Calculated as solution of equation
+  // Calculate parameters t of intersection with cyl.layer
+  // Calculated as solution of equation for ray crossing with circles of r (rmin and rmax)
   // t^2*mDist2 +- sqrt( mXDxPlusYDy^2 - mDist2*(mR02 - r^2) )
   // Region of valid t is 0:1.
   // Straigh line may have 2 crossings with cyl. layer 
-
-  float detMax = mXDxPlusYDy2 - mDist2*(mR02 - rmax2);
+  float detMax = mXDxPlusYDy2 - mDist2*(mR02 - lr.getRMax2());
   if (detMax<0) return 0;  // does not reach outer R, hence inner also
   float detMaxRed = std::sqrt(detMax)*mDist2i;  
   float tCross0Max = mXDxPlusYDyRed + detMaxRed; // largest possible t
@@ -102,36 +114,47 @@ inline int Ray::crossLayerR(float rmin2, float rmax2, std::array<CrossPar,2>& cr
     return 0;
   }
 
-  int nCross = 0;
   float tCross0Min = mXDxPlusYDyRed - detMaxRed; // smallest possible t
   if (tCross0Min>1.f) { // min t is outside of the limiting point -> other t's also
-    return nCross;
+    return 0;
   }
-
-  float detMin = mXDxPlusYDy2 - mDist2*(mR02 - rmin2);
+  float detMin = mXDxPlusYDy2 - mDist2*(mR02 - lr.getRMin2());
   if (detMin<0) {  // does not reach inner R -> just 1 tangential crossing
-    cross[nCross].first  = tCross0Min>0.f ? tCross0Min : 0.f;
-    cross[nCross].second = tCross0Max<1.f ? tCross0Max : 1.f;
-    return ++nCross;  
+    mCrossParams[0].first  = tCross0Min>0.f ? tCross0Min : 0.f;
+    mCrossParams[0].second = tCross0Max<1.f ? tCross0Max : 1.f;
+    return validateZRange( mCrossParams[0], lr ) ;
   }
+  int nCross = 0;
   float detMinRed = std::sqrt(detMin)*mDist2i;
   float tCross1Max = mXDxPlusYDyRed + detMinRed;
   float tCross1Min = mXDxPlusYDyRed - detMinRed;
 
   if (tCross1Max<1.f) {
-    cross[nCross].first  = tCross0Max<1.f ? tCross0Max:1.f;
-    cross[nCross].second = tCross1Max>0.f ? tCross1Max:0.f;
-    nCross++;
+    mCrossParams[0].first  = tCross0Max<1.f ? tCross0Max:1.f;
+    mCrossParams[0].second = tCross1Max>0.f ? tCross1Max:0.f;
+    if (validateZRange( mCrossParams[nCross], lr )) {
+      nCross++;
+    }
   }
   
   if (tCross1Min>-0.f) {
-    cross[nCross].first  = tCross1Min<1.f ? tCross1Min:1.f;
-    cross[nCross].second = tCross0Min>0.f ? tCross0Min:0.f;
-    nCross++;
+    mCrossParams[nCross].first  = tCross1Min<1.f ? tCross1Min:1.f;
+    mCrossParams[nCross].second = tCross0Min>0.f ? tCross0Min:0.f;
+    if (validateZRange( mCrossParams[nCross], lr )) {
+      nCross++;
+    }
   }
 
   return nCross;
 }
+
+inline float Ray::crossRadial(const MatLayerCyl& lr, int sliceID) const
+{
+  // calculate t of crossing with phimin of layer's slice sliceID
+  const auto& cs = lr.getCosSinSlice(sliceID);
+  return crossRadial(cs.first,cs.second);
+}
+
 
 //______________________________________________________
 inline float Ray::crossRadial(float cs, float sn) const
@@ -150,22 +173,20 @@ inline float Ray::crossZ(float z) const
 }
 
 //______________________________________________________
-inline bool Ray::validateZRange(CrossPar& cpar, Point3D<float> &p0, Point3D<float> &p1, const MatLayerCyl& lr) const
+inline bool Ray::validateZRange(CrossPar& cpar, const MatLayerCyl& lr) const
 {
   // make sure that estimated crossing parameters are compatible
   // with Z coverage of the layer
-  MatLayerCyl::RangeStatus zout0 = lr.isZOutside(p0.Z()), zout1 = lr.isZOutside(p1.Z());
+  MatLayerCyl::RangeStatus zout0 = lr.isZOutside(getZ(cpar.first)), zout1 = lr.isZOutside(getZ(cpar.second));
   if (zout0==zout1) { // either both points outside w/o crossing or boht inside
     return zout0==MatLayerCyl::Within ? true : false;  
   }
   // at least 1 point is outside, but the there is a crossing
   if (zout0!=MatLayerCyl::Within) {
-    cpar[0].first = crossZ(zout0==MatLayerCyl::Below ? lr.getZMin() : lr.getZMax());
-    p0 = ray.getPos(cross[0].first);
+    cpar.first = crossZ(zout0==MatLayerCyl::Below ? lr.getZMin() : lr.getZMax());
   }
   if (zout1!=MatLayerCyl::Within) {
-    cpar[0].second = crossZ(zout1==MatLayerCyl::Below ? lr.getZMin() : lr.getZMax());
-    p1 = ray.getPos(cross[0].second);
+    cpar.second = crossZ(zout1==MatLayerCyl::Below ? lr.getZMin() : lr.getZMax());
   }
   return true;
 }

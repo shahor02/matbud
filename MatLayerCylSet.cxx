@@ -168,7 +168,7 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
   // get material budget traversed on the line between point0 and point1
   MatCell rval;
   short lmin,lmax; // get innermost and outermost relevant layer
-  if (!getLayersRange(point0.Perp2(),point1.Perp2(),lmin,lmax)) {
+  if (!getLayersRange(point0,point1,lmin,lmax)) {
     return rval;
   }
   Ray ray(point0,point1);
@@ -177,8 +177,36 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
   float tAcc = 0.f; // accumulated t over layers
   do { // go from outside to inside
     const auto& lr = getLayer(lrID);
-    int nc = ray.cross(lr);
-    TODO
+    int nc = ray.crossLayer(lr);
+    for (int ic=nc;ic--;) {
+      auto &cross = ray.getCrossParams(ic); // tmax,tmin of crossing the layer
+      auto phiID = lr.getPhiSliceID( ray.getPhi(cross.first) );
+      auto phiID1 = lr.getPhiSliceID( ray.getPhi(cross.second) );
+      int stepPhi = 1;
+      if (phiID>phiID1 && phiID-phiID1<(lr.getNPhiSlices()>>1)) { // watch for wrapping around 1st bin
+	stepPhi = -1;
+      } 
+      auto phiIDStop = phiID1 + stepPhi;
+      // TODO TOFINISH
+      while(1) {
+	// get the path in the current phi slice
+	auto phiIDNext = phiID + stepPhi;
+	if (phiIDNext!=phiIDStop) { // last slice still not reached
+	  // ray reaches the boundary of current slice, determine its angle
+	  auto t = ray.crossRadial( lr, stepPhi>0 ? phiIDNext+1 : phiIDNext );
+	  
+	}
+	phiID = phiIDNext;
+      }
+      
+      auto zBin0 = lr.getZBinID(ray.getZ(cross.first));
+      auto zBin1 = lr.getZBinID(ray.getZ(cross.second));
+      
+
+      
+      auto xyz0 = ray.getPos(cross.first);
+      auto xyz1 = ray.getPos(cross.second);      
+    }
     
   } while(1);
   
@@ -187,12 +215,14 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
 }
 
 //_________________________________________________________________________________________________
-bool MatLayerCylSet::getLayersRange(float rmin2,float rmax2, short& lmin,short& lmax) const
+bool MatLayerCylSet::getLayersRange(const Point3D<float> &point0,const Point3D<float> &point1, short& lmin,short& lmax) const
 {
   // get range of layers corresponding to rmin/rmax
   //
   // tmp,slow, TODO
   lmin = lmax = -1;
+  float rmin2 = point0.Perp2();
+  float rmax2 = point1.Perp2();  
   if (rmin2>rmax2) {
     std::swap(rmin2,rmax2);
   }

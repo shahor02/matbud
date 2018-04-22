@@ -56,15 +56,19 @@ void MatLayerCyl::initSegmentation(float rMin,float rMax,float zHalfSpan,short n
   //
   mNPhiSlices = mNPhiBins;
   mPhiBin2Slice.resize(mNPhiBins);
+  mSliceCosSin.resize(mNPhiBins);
   int nCells = int(mNZBins)*mNPhiSlices;
   mCells.resize(nCells);
   for (int i=mNPhiSlices;i--;) {
     mPhiBin2Slice[i] = i; // fill with trivial mapping
+    mSliceCosSin[i].first = std::cos( getPhiBinMin(i) );
+    mSliceCosSin[i].second = std::sin( getPhiBinMin(i) );
   }
 }
 
+
 //________________________________________________________________________________
-inline short MatLayerCyl::getNPhiBinsInSlice(short iSlice, short &binMin, short &binMax) const
+short MatLayerCyl::getNPhiBinsInSlice(short iSlice, short &binMin, short &binMax) const
 {
   // slow method to get number of phi bins for given phi slice
   int nb = 0;
@@ -179,6 +183,7 @@ void MatLayerCyl::optimizePhiSlices(float maxRelDiff)
       is++;
     }
     if (slMax>slMin || newSl!=slMin) {  // merge or shift slices
+      mSliceCosSin[newSl] = mSliceCosSin[slMin];
       mCells[newSl] = mCells[slMin];
       for (int ism=slMin+1;ism<=slMax;ism++) {
 	mCells[newSl] += mCells[ism];
@@ -192,6 +197,8 @@ void MatLayerCyl::optimizePhiSlices(float maxRelDiff)
   mNPhiSlices = newSl;
   LOG(INFO)<<"Updated Nslices = "<<mNPhiSlices<<FairLogger::endl;
   mCells.resize(mNPhiSlices);
+  mPhiBin2Slice.resize(mNPhiSlices);
+  mSliceCosSin.resize(mNPhiSlices);
 }
   
 //________________________________________________________________________________

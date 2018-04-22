@@ -114,7 +114,8 @@ class MatLayerCyl {
   // ---------------------- Phi slice manipulation (0:2pi convention, no check is done)
   // convert Phi (in 0:2pi convention) to PhiBinID
   short getPhiBinID(float phi)  const { return short(phi*mDPhiInv);}
-  short phiBin2Slice(short i)    const {return mPhiBin2Slice[i];}
+  short phiBin2Slice(short i)    const {return (i>=0 && i<mNPhiBins) ? mPhiBin2Slice[i] : -1;}
+  short getEdgePhiBinOfSlice(short phiBin, short dir) const;
   short getPhiSliceID(float phi)   const { return phiBin2Slice(getPhiBinID(phi));}
   short getNPhiBinsInSlice(short iSlice, short &binMin, short &binMax) const;
   
@@ -123,6 +124,9 @@ class MatLayerCyl {
 
   // upper boundary of phi slice
   float getPhiBinMax(short id)     const {return (id+1)*mDPhi;}
+
+  // sin and cosine of the slice lower angle
+  const std::pair<float,float>& getCosSinSlice(int i) const {return mSliceCosSin[i];}
   
   const std::vector<MatCell> & getCells() const {return mCells;}
 
@@ -154,11 +158,20 @@ class MatLayerCyl {
   float mDPhiInv = 0.f;    ///< phi slice thickness inverse
 
   std::vector<short> mPhiBin2Slice; ///< mapping from analytical phi bin ID to real slice ID
+  std::vector<std::pair<float,float>> mSliceCosSin; // cached cos and sin and of each phi slice
   std::vector<MatCell> mCells; ///< vector of mat.budget per cell
-  
   ClassDefNV(MatLayerCyl,1);
 };
 
+//________________________________________________________________________________
+inline short MatLayerCyl::getEdgePhiBinOfSlice(short phiBin, short dir) const
+{
+  // Get edge bin (in direction dir) of the slice, to which phiBin belongs
+  // No check for phiBin validity is done
+  auto slice = phiBin2Slice(phiBin);
+  while(slice == phiBin2Slice( (phiBin += dir) ));
+  return phiBin - dir;
+}
 
 
 #endif

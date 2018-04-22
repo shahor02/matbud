@@ -47,34 +47,6 @@ namespace std {} using namespace std;
 // Header files passed via #pragma extra_include
 
 namespace ROOT {
-   static void delete_Ray(void *p);
-   static void deleteArray_Ray(void *p);
-   static void destruct_Ray(void *p);
-
-   // Function generating the singleton type initializer
-   static TGenericClassInfo *GenerateInitInstanceLocal(const ::Ray*)
-   {
-      ::Ray *ptr = 0;
-      static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::Ray >(0);
-      static ::ROOT::TGenericClassInfo 
-         instance("Ray", ::Ray::Class_Version(), "Ray.h", 36,
-                  typeid(::Ray), ::ROOT::Internal::DefineBehavior(ptr, ptr),
-                  &::Ray::Dictionary, isa_proxy, 4,
-                  sizeof(::Ray) );
-      instance.SetDelete(&delete_Ray);
-      instance.SetDeleteArray(&deleteArray_Ray);
-      instance.SetDestructor(&destruct_Ray);
-      return &instance;
-   }
-   TGenericClassInfo *GenerateInitInstance(const ::Ray*)
-   {
-      return GenerateInitInstanceLocal((::Ray*)0);
-   }
-   // Static variable to force the class initialization
-   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const ::Ray*)0x0); R__UseDummy(_R__UNIQUE_DICT_(Init));
-} // end of namespace ROOT
-
-namespace ROOT {
    static void *new_MatLayerCyl(void *p = 0);
    static void *newArray_MatLayerCyl(Long_t size, void *p);
    static void delete_MatLayerCyl(void *p);
@@ -104,6 +76,34 @@ namespace ROOT {
    }
    // Static variable to force the class initialization
    static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const ::MatLayerCyl*)0x0); R__UseDummy(_R__UNIQUE_DICT_(Init));
+} // end of namespace ROOT
+
+namespace ROOT {
+   static void delete_Ray(void *p);
+   static void deleteArray_Ray(void *p);
+   static void destruct_Ray(void *p);
+
+   // Function generating the singleton type initializer
+   static TGenericClassInfo *GenerateInitInstanceLocal(const ::Ray*)
+   {
+      ::Ray *ptr = 0;
+      static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::Ray >(0);
+      static ::ROOT::TGenericClassInfo 
+         instance("Ray", ::Ray::Class_Version(), "Ray.h", 31,
+                  typeid(::Ray), ::ROOT::Internal::DefineBehavior(ptr, ptr),
+                  &::Ray::Dictionary, isa_proxy, 4,
+                  sizeof(::Ray) );
+      instance.SetDelete(&delete_Ray);
+      instance.SetDeleteArray(&deleteArray_Ray);
+      instance.SetDestructor(&destruct_Ray);
+      return &instance;
+   }
+   TGenericClassInfo *GenerateInitInstance(const ::Ray*)
+   {
+      return GenerateInitInstanceLocal((::Ray*)0);
+   }
+   // Static variable to force the class initialization
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const ::Ray*)0x0); R__UseDummy(_R__UNIQUE_DICT_(Init));
 } // end of namespace ROOT
 
 namespace ROOT {
@@ -139,41 +139,6 @@ namespace ROOT {
 } // end of namespace ROOT
 
 //______________________________________________________________________________
-atomic_TClass_ptr Ray::fgIsA(0);  // static to hold class pointer
-
-//______________________________________________________________________________
-const char *Ray::Class_Name()
-{
-   return "Ray";
-}
-
-//______________________________________________________________________________
-const char *Ray::ImplFileName()
-{
-   return ::ROOT::GenerateInitInstanceLocal((const ::Ray*)0x0)->GetImplFileName();
-}
-
-//______________________________________________________________________________
-int Ray::ImplFileLine()
-{
-   return ::ROOT::GenerateInitInstanceLocal((const ::Ray*)0x0)->GetImplFileLine();
-}
-
-//______________________________________________________________________________
-TClass *Ray::Dictionary()
-{
-   fgIsA = ::ROOT::GenerateInitInstanceLocal((const ::Ray*)0x0)->GetClass();
-   return fgIsA;
-}
-
-//______________________________________________________________________________
-TClass *Ray::Class()
-{
-   if (!fgIsA.load()) { R__LOCKGUARD(gInterpreterMutex); fgIsA = ::ROOT::GenerateInitInstanceLocal((const ::Ray*)0x0)->GetClass(); }
-   return fgIsA;
-}
-
-//______________________________________________________________________________
 atomic_TClass_ptr MatLayerCyl::fgIsA(0);  // static to hold class pointer
 
 //______________________________________________________________________________
@@ -205,6 +170,41 @@ TClass *MatLayerCyl::Dictionary()
 TClass *MatLayerCyl::Class()
 {
    if (!fgIsA.load()) { R__LOCKGUARD(gInterpreterMutex); fgIsA = ::ROOT::GenerateInitInstanceLocal((const ::MatLayerCyl*)0x0)->GetClass(); }
+   return fgIsA;
+}
+
+//______________________________________________________________________________
+atomic_TClass_ptr Ray::fgIsA(0);  // static to hold class pointer
+
+//______________________________________________________________________________
+const char *Ray::Class_Name()
+{
+   return "Ray";
+}
+
+//______________________________________________________________________________
+const char *Ray::ImplFileName()
+{
+   return ::ROOT::GenerateInitInstanceLocal((const ::Ray*)0x0)->GetImplFileName();
+}
+
+//______________________________________________________________________________
+int Ray::ImplFileLine()
+{
+   return ::ROOT::GenerateInitInstanceLocal((const ::Ray*)0x0)->GetImplFileLine();
+}
+
+//______________________________________________________________________________
+TClass *Ray::Dictionary()
+{
+   fgIsA = ::ROOT::GenerateInitInstanceLocal((const ::Ray*)0x0)->GetClass();
+   return fgIsA;
+}
+
+//______________________________________________________________________________
+TClass *Ray::Class()
+{
+   if (!fgIsA.load()) { R__LOCKGUARD(gInterpreterMutex); fgIsA = ::ROOT::GenerateInitInstanceLocal((const ::Ray*)0x0)->GetClass(); }
    return fgIsA;
 }
 
@@ -244,32 +244,6 @@ TClass *MatLayerCylSet::Class()
 }
 
 //______________________________________________________________________________
-void Ray::Streamer(TBuffer &R__b)
-{
-   // Stream an object of class Ray.
-
-   if (R__b.IsReading()) {
-      R__b.ReadClassBuffer(Ray::Class(),this);
-   } else {
-      R__b.WriteClassBuffer(Ray::Class(),this);
-   }
-}
-
-namespace ROOT {
-   // Wrapper around operator delete
-   static void delete_Ray(void *p) {
-      delete ((::Ray*)p);
-   }
-   static void deleteArray_Ray(void *p) {
-      delete [] ((::Ray*)p);
-   }
-   static void destruct_Ray(void *p) {
-      typedef ::Ray current_t;
-      ((current_t*)p)->~current_t();
-   }
-} // end of namespace ROOT for class ::Ray
-
-//______________________________________________________________________________
 void MatLayerCyl::Streamer(TBuffer &R__b)
 {
    // Stream an object of class MatLayerCyl.
@@ -301,6 +275,32 @@ namespace ROOT {
       ((current_t*)p)->~current_t();
    }
 } // end of namespace ROOT for class ::MatLayerCyl
+
+//______________________________________________________________________________
+void Ray::Streamer(TBuffer &R__b)
+{
+   // Stream an object of class Ray.
+
+   if (R__b.IsReading()) {
+      R__b.ReadClassBuffer(Ray::Class(),this);
+   } else {
+      R__b.WriteClassBuffer(Ray::Class(),this);
+   }
+}
+
+namespace ROOT {
+   // Wrapper around operator delete
+   static void delete_Ray(void *p) {
+      delete ((::Ray*)p);
+   }
+   static void deleteArray_Ray(void *p) {
+      delete [] ((::Ray*)p);
+   }
+   static void destruct_Ray(void *p) {
+      typedef ::Ray current_t;
+      ((current_t*)p)->~current_t();
+   }
+} // end of namespace ROOT for class ::Ray
 
 //______________________________________________________________________________
 void MatLayerCylSet::Streamer(TBuffer &R__b)
@@ -397,6 +397,69 @@ namespace ROOT {
       ((current_t*)p)->~current_t();
    }
 } // end of namespace ROOT for class vector<short>
+
+namespace ROOT {
+   static TClass *vectorlEpairlEfloatcOfloatgRsPgR_Dictionary();
+   static void vectorlEpairlEfloatcOfloatgRsPgR_TClassManip(TClass*);
+   static void *new_vectorlEpairlEfloatcOfloatgRsPgR(void *p = 0);
+   static void *newArray_vectorlEpairlEfloatcOfloatgRsPgR(Long_t size, void *p);
+   static void delete_vectorlEpairlEfloatcOfloatgRsPgR(void *p);
+   static void deleteArray_vectorlEpairlEfloatcOfloatgRsPgR(void *p);
+   static void destruct_vectorlEpairlEfloatcOfloatgRsPgR(void *p);
+
+   // Function generating the singleton type initializer
+   static TGenericClassInfo *GenerateInitInstanceLocal(const vector<pair<float,float> >*)
+   {
+      vector<pair<float,float> > *ptr = 0;
+      static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(vector<pair<float,float> >));
+      static ::ROOT::TGenericClassInfo 
+         instance("vector<pair<float,float> >", -2, "vector", 216,
+                  typeid(vector<pair<float,float> >), ::ROOT::Internal::DefineBehavior(ptr, ptr),
+                  &vectorlEpairlEfloatcOfloatgRsPgR_Dictionary, isa_proxy, 0,
+                  sizeof(vector<pair<float,float> >) );
+      instance.SetNew(&new_vectorlEpairlEfloatcOfloatgRsPgR);
+      instance.SetNewArray(&newArray_vectorlEpairlEfloatcOfloatgRsPgR);
+      instance.SetDelete(&delete_vectorlEpairlEfloatcOfloatgRsPgR);
+      instance.SetDeleteArray(&deleteArray_vectorlEpairlEfloatcOfloatgRsPgR);
+      instance.SetDestructor(&destruct_vectorlEpairlEfloatcOfloatgRsPgR);
+      instance.AdoptCollectionProxyInfo(TCollectionProxyInfo::Generate(TCollectionProxyInfo::Pushback< vector<pair<float,float> > >()));
+      return &instance;
+   }
+   // Static variable to force the class initialization
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const vector<pair<float,float> >*)0x0); R__UseDummy(_R__UNIQUE_DICT_(Init));
+
+   // Dictionary for non-ClassDef classes
+   static TClass *vectorlEpairlEfloatcOfloatgRsPgR_Dictionary() {
+      TClass* theClass =::ROOT::GenerateInitInstanceLocal((const vector<pair<float,float> >*)0x0)->GetClass();
+      vectorlEpairlEfloatcOfloatgRsPgR_TClassManip(theClass);
+   return theClass;
+   }
+
+   static void vectorlEpairlEfloatcOfloatgRsPgR_TClassManip(TClass* ){
+   }
+
+} // end of namespace ROOT
+
+namespace ROOT {
+   // Wrappers around operator new
+   static void *new_vectorlEpairlEfloatcOfloatgRsPgR(void *p) {
+      return  p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) vector<pair<float,float> > : new vector<pair<float,float> >;
+   }
+   static void *newArray_vectorlEpairlEfloatcOfloatgRsPgR(Long_t nElements, void *p) {
+      return p ? ::new((::ROOT::Internal::TOperatorNewHelper*)p) vector<pair<float,float> >[nElements] : new vector<pair<float,float> >[nElements];
+   }
+   // Wrapper around operator delete
+   static void delete_vectorlEpairlEfloatcOfloatgRsPgR(void *p) {
+      delete ((vector<pair<float,float> >*)p);
+   }
+   static void deleteArray_vectorlEpairlEfloatcOfloatgRsPgR(void *p) {
+      delete [] ((vector<pair<float,float> >*)p);
+   }
+   static void destruct_vectorlEpairlEfloatcOfloatgRsPgR(void *p) {
+      typedef vector<pair<float,float> > current_t;
+      ((current_t*)p)->~current_t();
+   }
+} // end of namespace ROOT for class vector<pair<float,float> >
 
 namespace ROOT {
    static TClass *vectorlEMatLayerCylgR_Dictionary();
@@ -550,8 +613,8 @@ namespace {
 #pragma clang diagnostic ignored "-Wignored-attributes"
 #pragma clang diagnostic ignored "-Wreturn-type-c-linkage"
 extern int __Cling_Autoloading_Map;
+class __attribute__((annotate("$clingAutoload$MatLayerCyl.h")))  __attribute__((annotate("$clingAutoload$Ray.h")))  MatLayerCyl;
 class __attribute__((annotate("$clingAutoload$Ray.h")))  Ray;
-class __attribute__((annotate("$clingAutoload$MatLayerCyl.h")))  MatLayerCyl;
 class __attribute__((annotate("$clingAutoload$MatLayerCylSet.h")))  MatLayerCylSet;
 )DICTFWDDCLS";
     static const char* payloadCode = R"DICTPAYLOAD(

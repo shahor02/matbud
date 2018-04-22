@@ -30,19 +30,5 @@ Ray::Ray(const Point3D<float> point0,const Point3D<float> point1)
   mR02 = point0.Perp2();
 } 
 
-//______________________________________________________
-int Ray::Cross(const MatLayerCyl& lr)
-{
-  ///< calculate parameters of crossing the layer
-  std::array<CrossPar,2> cross;
-  int nc = crossLayerR(lr.getRMin2(),lr.getRMax2(),cross);
-  if (!nc) {
-    return 0;
-  }
-  auto p0 = ray.getPos(cross[0].first); // high t
-  auto p1 = ray.getPos(cross[0].second); // low t
-  if (validateZRange(cross[0],p0,p1,lr)
-  
-}
 
 

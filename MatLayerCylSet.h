@@ -55,7 +55,7 @@ class MatLayerCylSet {
   MatCell getMatBudget(const Point3D<float> &point0,const Point3D<float> &point1) const;
   MatCell getMatBudget(float x0, float y0, float z0, float x1, float y1, float z1) const;
 
-  bool getLayersRange(float rmin2,float rmax2, short& lmin,short& lmax) const;
+  bool getLayersRange(const Point3D<float> &point0,const Point3D<float> &point1, short& lmin,short& lmax) const;
   
  protected:
   float mRMin = 0.f; ///< min radius
