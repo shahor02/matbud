@@ -51,14 +51,14 @@ void MatLayerCylSet::print(bool data) const
 
 void MatLayerCylSet::optimizePhiSlices(float maxRelDiff)
 {
-  // merge similar phi slices
+  // merge similar (whose relative budget does not differ within maxRelDiff) phi slices
   for (int i=getNLayers();i--;) mLayers[i].optimizePhiSlices(maxRelDiff);
 }
 
 //________________________________________________________________________________
 void MatLayerCylSet::populateFromTGeo(int ntrPerCel)
 {
-  ///< populate layers
+  ///< populate layers, using ntrPerCell test tracks per cell
   if (!gGeoManager || !gGeoManager->IsClosed()) {
     LOG(ERROR) << "No active geometry or geometry not yet closed!" << FairLogger::endl;
     return;

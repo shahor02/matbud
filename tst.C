@@ -3,10 +3,13 @@ MatLayerCylSet st;
 
 void tst(float rmin=0,float rmax=50,int nr=50, float zmax=50, float dz=1.f, float drphi=0.5f)
 {
-  gSystem->Load("libCommonUtils.so");
-  gSystem->Load("libDetectorsBase.so");
-  gSystem->Load("libMatBud.so");
-
+  /* 
+     // now this is loaded via loadLibs.C
+     gSystem->Load("libCommonUtils.so");
+     gSystem->Load("libDetectorsBase.so");
+     gSystem->Load("libMatBud.so");
+  */
+  
   o2::Base::GeometryManager::loadGeometry("~/tmp/match/pbpb_hijing/O2geometry.root");
   float dr = (rmax-rmin)/nr;
   float r=rmin;
@@ -16,7 +19,13 @@ void tst(float rmin=0,float rmax=50,int nr=50, float zmax=50, float dz=1.f, floa
   }
   st.populateFromTGeo(5);
 
-  TFile stf("mb.root","recreate");
-  stf.WriteObjectAny(&st, st.Class(), "matBud");
+  TFile stf("matBudg_raw.root","recreate");
+  stf.WriteObjectAny(&st, st.Class(), "MatBud");
   stf.Close();
+
+  st.optimizePhiSlices();
+  TFile stfo("matBudg.root","recreate");
+  stfo.WriteObjectAny(&st, st.Class(), "MatBud");
+  stfo.Close();
+  
 }

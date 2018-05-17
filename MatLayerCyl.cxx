@@ -89,7 +89,7 @@ short MatLayerCyl::getNPhiBinsInSlice(short iSlice, short &binMin, short &binMax
 //________________________________________________________________________________
 void MatLayerCyl::populateFromTGeo(int ntrPerCell)
 {
-  /// populate layer with info extracted from TGeometry
+  /// populate layer with info extracted from TGeometry, using ntrPerCell test tracks per cell
   ntrPerCell = ntrPerCell>1 ? ntrPerCell : 1;
   for (int iz=mNZBins;iz--;) {
     for (int ip=mNPhiBins;ip--;) {
@@ -101,7 +101,7 @@ void MatLayerCyl::populateFromTGeo(int ntrPerCell)
 //________________________________________________________________________________
 void MatLayerCyl::populateFromTGeo(short ip, short iz, int ntrPerCell)
 {
-  /// populate cell with info extracted from TGeometry
+  /// populate cell with info extracted from TGeometry, using ntrPerCell test tracks per cell
   
   float zmn = getZBinMin(iz), phmn = getPhiBinMin(ip), sn,cs;
   double meanRho = 0., meanX2X0 = 0., lgt = 0.;;

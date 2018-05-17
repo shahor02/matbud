@@ -34,7 +34,7 @@ $(TGT):	$(OBJ) $(DICTO)
 	@rm -f $*.d.tmp
 
 clean:
-	rm -f *.o *~ *.so *.d *Dict.{h,cxx}
+	rm -f *.o *~ *.so *.pcm *.d *Dict.{h,cxx}
 
 $(DICT): $(HDR) MatBudLinkDef.h
 	rootcint -f $@ -c $(INC) $(HDR) $^
