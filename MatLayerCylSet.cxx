@@ -181,12 +181,12 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
     for (int ic=nc;ic--;) {
       auto &cross = ray.getCrossParams(ic); // tmax,tmin of crossing the layer
       auto phiID = lr.getPhiSliceID( ray.getPhi(cross.first) );
-      auto phiID1 = lr.getPhiSliceID( ray.getPhi(cross.second) );
+      auto phiIDLast = lr.getPhiSliceID( ray.getPhi(cross.second) );
       int stepPhi = 1;
-      if (phiID>phiID1 && phiID-phiID1<(lr.getNPhiSlices()>>1)) { // watch for wrapping around 1st bin
+      if (phiID>phiIDLast && phiID-phiIDLast<(lr.getNPhiSlices()>>1)) { // watch for wrapping around 1st bin
 	stepPhi = -1;
       } 
-      auto phiIDStop = phiID1 + stepPhi;
+      auto phiIDStop = phiIDLast + stepPhi;
       // TODO TOFINISH
       while(1) {
 	// get the path in the current phi slice

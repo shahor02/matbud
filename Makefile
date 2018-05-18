@@ -1,6 +1,6 @@
 # for C++ define  CC = g++
 CC = g++
-CFLAGS = -g -Wall -fPIC -m64 -std=gnu++14
+CFLAGS = -g -O0 -Wall -fPIC -m64 -std=gnu++14
 LFLAGS = -L$(ROOTSYS)/lib 
 INC =	-I$(ROOTSYS)/include -I$(O2_ROOT)/include -I$(FAIRROOT_ROOT)/include -I./
 TGT =	libMatBud.so

@@ -30,5 +30,56 @@ Ray::Ray(const Point3D<float> point0,const Point3D<float> point1)
   mR02 = point0.Perp2();
 } 
 
+//______________________________________________________
+int Ray::crossLayer(const MatLayerCyl& lr)
+{
+  // Calculate parameters t of intersection with cyl.layer
+  // Calculated as solution of equation for ray crossing with circles of r (rmin and rmax)
+  // t^2*mDist2 +- sqrt( mXDxPlusYDy^2 - mDist2*(mR02 - r^2) )
+  // Region of valid t is 0:1.
+  // Straigh line may have 2 crossings with cyl. layer 
+  float detMax = mXDxPlusYDy2 - mDist2*(mR02 - lr.getRMax2());
+  if (detMax<0) return 0;  // does not reach outer R, hence inner also
+  float detMaxRed = std::sqrt(detMax)*mDist2i;  
+  float tCross0Max = mXDxPlusYDyRed + detMaxRed; // largest possible t
+  
+  if (tCross0Max<0) { // max t is outside of the limiting point -> other t's also
+    return 0;
+  }
+
+  float tCross0Min = mXDxPlusYDyRed - detMaxRed; // smallest possible t
+  if (tCross0Min>1.f) { // min t is outside of the limiting point -> other t's also
+    return 0;
+  }
+  float detMin = mXDxPlusYDy2 - mDist2*(mR02 - lr.getRMin2());
+  if (detMin<0) {  // does not reach inner R -> just 1 tangential crossing
+    mCrossParams[0].first  = tCross0Min>0.f ? tCross0Min : 0.f;
+    mCrossParams[0].second = tCross0Max<1.f ? tCross0Max : 1.f;
+    return validateZRange( mCrossParams[0], lr ) ;
+  }
+  int nCross = 0;
+  float detMinRed = std::sqrt(detMin)*mDist2i;
+  float tCross1Max = mXDxPlusYDyRed + detMinRed;
+  float tCross1Min = mXDxPlusYDyRed - detMinRed;
+
+  if (tCross1Max<1.f) {
+    mCrossParams[0].first  = tCross0Max<1.f ? tCross0Max:1.f;
+    mCrossParams[0].second = tCross1Max>0.f ? tCross1Max:0.f;
+    if (validateZRange( mCrossParams[nCross], lr )) {
+      nCross++;
+    }
+  }
+  
+  if (tCross1Min>-0.f) {
+    mCrossParams[nCross].first  = tCross1Min<1.f ? tCross1Min:1.f;
+    mCrossParams[nCross].second = tCross0Min>0.f ? tCross0Min:0.f;
+    if (validateZRange( mCrossParams[nCross], lr )) {
+      nCross++;
+    }
+  }
+
+  return nCross;
+}
+
 
 
