@@ -194,31 +194,42 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
 	  phiID += lr.getNPhiSlices();
 	}
       }
-      int stepID = phiID > phiIDLast ? -1 : 1; 
-      bool checkMore = true;
+      int stepPhiID = phiID > phiIDLast ? -1 : 1; 
+      bool checkMorePhi = true;
       auto tStart = cross.first, tEnd = 0.f;
       do {
 	// get the path in the current phi slice
 	if (phiID==phiIDLast) {
 	  tEnd = cross.second;
-	  checkMore = false;
+	  checkMorePhi = false;
 	}
 	else { // last phi slice still not reached
-	  tEnd = ray.crossRadial( lr, (stepID>0 ? phiID+1 : phiID)%lr.getNPhiSlices() );
+	  tEnd = ray.crossRadial( lr, (stepPhiID>0 ? phiID+1 : phiID)%lr.getNPhiSlices() );
 	}
 	auto pos0 = ray.getPos(tStart);
 	auto pos1 = ray.getPos(tEnd);
-	auto zBin0 = lr.getZBinID(ray.getZ(tStart));
-	auto zBin1 = lr.getZBinID(ray.getZ(tEnd));
-
+	auto zID = lr.getZBinID(ray.getZ(tStart));
+	auto zIDLast = lr.getZBinID(ray.getZ(tEnd));
+	// check if Zbins are crossed
+	/*
+	if (zID!=zIDLast) {
+	  auto stepZID = zID<zIDLast ? 1:-1;
+	  bool checkMoreZ = true;
+	  do {
+	    
+	    
+	    zID += stepZID;
+	  } while(checkMoreZ);
+	}
+	*/
 	printf("Lr#%3d / cross#%d : account %f<t<%f at phiSlice %d | Zbins: %d %d |[%+e %+e +%e]:[%+e %+e %+e]\n",
-	       lrID,ic,tEnd,tStart,phiID%lr.getNPhiSlices(),zBin0,zBin1,
+	       lrID,ic,tEnd,tStart,phiID%lr.getNPhiSlices(),zID,zIDLast,
 	       pos0.X(),pos0.Y(),pos0.Z(), pos1.X(),pos1.Y(),pos1.Z() );
 	//
 	tStart = tEnd;
-	phiID += stepID;
+	phiID += stepPhiID;
 	
-      } while(checkMore);
+      } while(checkMorePhi);
     }    
     lrID--;
   } // loop over layers
