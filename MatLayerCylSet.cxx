@@ -14,6 +14,7 @@
 #include "MatLayerCylSet.h"
 #include "Ray.h"
 #include "CommonUtils/TreeStreamRedirector.h"
+#include "CommonConstants/MathConstants.h"
 #include "DetectorsBase/GeometryManager.h"
 #include <FairLogger.h>
 #include <TFile.h>
@@ -180,22 +181,30 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
     int nc = ray.crossLayer(lr);
     for (int ic=nc;ic--;) {
       auto &cross = ray.getCrossParams(ic); // tmax,tmin of crossing the layer
-      auto phiID = lr.getPhiSliceID( ray.getPhi(cross.first) );
-      auto phiIDLast = lr.getPhiSliceID( ray.getPhi(cross.second) );
-      int stepPhi = 1;
-      if (phiID>phiIDLast && phiID-phiIDLast<(lr.getNPhiSlices()>>1)) { // watch for wrapping around 1st bin
-	stepPhi = -1;
-      } 
-      auto phiIDStop = phiIDLast + stepPhi;
-      // TODO TOFINISH
-      float tStart = cross.first, tEnd = 0.f;
+      auto phi0 = ray.getPhi(cross.first), phi1 = ray.getPhi(cross.second), dPhi = phi0 - phi1;
+      auto phiID = lr.getPhiSliceID( phi0 ), phiIDLast = lr.getPhiSliceID( phi1 );
+      // account for eventual wrapping around 0
+      if (dPhi>0.f) { 
+	if (dPhi>o2::constants::math::PI) { // wraps around phi=0
+	  phiIDLast += lr.getNPhiSlices();
+	}
+      }
+      else {
+	if (dPhi<-o2::constants::math::PI) { // wraps around phi=0
+	  phiID += lr.getNPhiSlices();
+	}
+      }
+      int stepID = phiID > phiIDLast ? -1 : 1; 
+      bool checkMore = true;
+      auto tStart = cross.first, tEnd = 0.f;
       do {
 	// get the path in the current phi slice
 	if (phiID==phiIDLast) {
 	  tEnd = cross.second;
+	  checkMore = false;
 	}
 	else { // last phi slice still not reached
-	  tEnd = ray.crossRadial( lr, stepPhi>0 ? phiID+1 : phiID );
+	  tEnd = ray.crossRadial( lr, (stepID>0 ? phiID+1 : phiID)%lr.getNPhiSlices() );
 	}
 	auto pos0 = ray.getPos(tStart);
 	auto pos1 = ray.getPos(tEnd);
@@ -203,18 +212,17 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
 	auto zBin1 = lr.getZBinID(ray.getZ(tEnd));
 
 	printf("Lr#%3d / cross#%d : account %f<t<%f at phiSlice %d | Zbins: %d %d |[%+e %+e +%e]:[%+e %+e %+e]\n",
-	       lrID,ic,tEnd,tStart,phiID,zBin0,zBin1,
+	       lrID,ic,tEnd,tStart,phiID%lr.getNPhiSlices(),zBin0,zBin1,
 	       pos0.X(),pos0.Y(),pos0.Z(), pos1.X(),pos1.Y(),pos1.Z() );
 	//
 	tStart = tEnd;
-	phiID += stepPhi;
+	phiID += stepID;
 	
-      } while(phiID!=phiIDStop);
+      } while(checkMore);
     }    
     lrID--;
   } // loop over layers
   
-
   return rval;
 }
 
@@ -234,12 +242,9 @@ bool MatLayerCylSet::getLayersRange(float x0, float y0, float x1, float y1, shor
   float dx = x1-x0, dy = y1-y0;
   float dr2 = dx*dx+dy*dy;
   if (dr2<Ray::Tiny) return false;
-  float tNorm = -(x0*dx + y1*dy)/dr2;
-  float xNorm = x0+tNorm*dx, yNorm = y1+tNorm*dy;
-  printf("TNorm = %f | X=%+e Y=%+e\n", tNorm, xNorm, yNorm);
-
+  float tNorm = -(x0*dx + y0*dy)/dr2;
   if (tNorm>0. && tNorm<1.) {   
-    float oldrm2 = rmin2;
+    float oldrm2 = rmin2, xNorm = x0+tNorm*dx, yNorm = y0+tNorm*dy;
     rmin2 = xNorm*xNorm + yNorm*yNorm;
     printf("Redefine rmin2 from %e to %e\n",oldrm2,rmin2);
   }
@@ -248,24 +253,18 @@ bool MatLayerCylSet::getLayersRange(float x0, float y0, float x1, float y1, shor
     return false;
   }
 
-  
-  
   for (lmin=0;lmin<getNLayers();lmin++) {
     const auto & lr =  getLayer(lmin);
     if (lr.getRMax2()>rmin2) {
       break;
     }
   }
-  if (rmax2>getRMax2()) {
-    lmax = getNLayers()-1;
-  }
-  else {
-    for (lmax=lmin;lmax<getNLayers();lmax++) {
-      const auto & lr =  getLayer(lmin);
-      if (lr.getRMax2()>rmax2) {
-	break;
-      }
+  for (lmax=lmin;lmax<getNLayers();lmax++) {
+    const auto & lr =  getLayer(lmin);
+    if (lr.getRMax2()>rmax2-Ray::Tiny) {
+      break;
     }
   }
+  if (lmax==getNLayers()) lmax = getNLayers()-1;
   return true;
 }

@@ -114,7 +114,7 @@ class MatLayerCyl {
   // ---------------------- Phi slice manipulation (0:2pi convention, no check is done)
   // convert Phi (in 0:2pi convention) to PhiBinID
   int getPhiBinID(float phi)  const { return int(phi*mDPhiInv);}
-  int phiBin2Slice(int i)     const {return (i>=0 && i<mNPhiBins) ? mPhiBin2Slice[i] : -1;}
+  int phiBin2Slice(int i)     const {return mPhiBin2Slice[i];}
   int getEdgePhiBinOfSlice(int phiBin, int dir) const;
   int getPhiSliceID(float phi)   const { return phiBin2Slice(getPhiBinID(phi));}
   int getNPhiBinsInSlice(int iSlice, int &binMin, int &binMax) const;
