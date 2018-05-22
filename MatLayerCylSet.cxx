@@ -197,9 +197,14 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
 	else { // last phi slice still not reached
 	  tEnd = ray.crossRadial( lr, stepPhi>0 ? phiID+1 : phiID );
 	}
+	auto pos0 = ray.getPos(tStart);
+	auto pos1 = ray.getPos(tEnd);
 	auto zBin0 = lr.getZBinID(ray.getZ(tStart));
 	auto zBin1 = lr.getZBinID(ray.getZ(tEnd));
-	printf("cross#%d : account %f<t<%f at phiSlice %d | Zbins: %d %d\n",ic,tStart,tEnd,phiID,zBin0,zBin1);
+
+	printf("Lr#%3d / cross#%d : account %f<t<%f at phiSlice %d | Zbins: %d %d |[%+e %+e +%e]:[%+e %+e %+e]\n",
+	       lrID,ic,tEnd,tStart,phiID,zBin0,zBin1,
+	       pos0.X(),pos0.Y(),pos0.Z(), pos1.X(),pos1.Y(),pos1.Z() );
 	//
 	tStart = tEnd;
 	phiID += stepPhi;

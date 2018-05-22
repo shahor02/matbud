@@ -32,7 +32,7 @@ MatLayerCyl::MatLayerCyl(float rMin,float rMax,float zHalfSpan, float dzMin,floa
 }
 
 //________________________________________________________________________________
-void MatLayerCyl::initSegmentation(float rMin,float rMax,float zHalfSpan,short nz,short nphi)
+void MatLayerCyl::initSegmentation(float rMin,float rMax,float zHalfSpan,int nz,int nphi)
 {
   // recalculate aux parameters
   mRMin = rMin;
@@ -57,7 +57,7 @@ void MatLayerCyl::initSegmentation(float rMin,float rMax,float zHalfSpan,short n
   mNPhiSlices = mNPhiBins;
   mPhiBin2Slice.resize(mNPhiBins);
   mSliceCosSin.resize(mNPhiBins);
-  int nCells = int(mNZBins)*mNPhiSlices;
+  int nCells = getNPhiSlices()*getNZBins();
   mCells.resize(nCells);
   for (int i=mNPhiSlices;i--;) {
     mPhiBin2Slice[i] = i; // fill with trivial mapping
@@ -68,7 +68,7 @@ void MatLayerCyl::initSegmentation(float rMin,float rMax,float zHalfSpan,short n
 
 
 //________________________________________________________________________________
-short MatLayerCyl::getNPhiBinsInSlice(short iSlice, short &binMin, short &binMax) const
+int MatLayerCyl::getNPhiBinsInSlice(int iSlice, int &binMin, int &binMax) const
 {
   // slow method to get number of phi bins for given phi slice
   int nb = 0;
@@ -99,7 +99,7 @@ void MatLayerCyl::populateFromTGeo(int ntrPerCell)
 }
 
 //________________________________________________________________________________
-void MatLayerCyl::populateFromTGeo(short ip, short iz, int ntrPerCell)
+void MatLayerCyl::populateFromTGeo(int ip, int iz, int ntrPerCell)
 {
   /// populate cell with info extracted from TGeometry, using ntrPerCell test tracks per cell
   
@@ -164,7 +164,7 @@ void MatLayerCyl::optimizePhiSlices(float maxRelDiff)
     LOG(ERROR)<<mNPhiBins<<" phi bins were already merged to "<<mNPhiSlices<<" slices"<<FairLogger::endl;
     return;
   }
-  short newSl = 0;
+  int newSl = 0;
   for (int is=1;is<mNPhiSlices;is++) {
     if (!canMergePhiSlices(is-1,is,maxRelDiff)) {
       newSl++;
@@ -176,7 +176,7 @@ void MatLayerCyl::optimizePhiSlices(float maxRelDiff)
     return;
   }
   newSl = 0;
-  short slMin=0,slMax=0, is=0;
+  int slMin=0,slMax=0, is=0;
   while (is++<mNPhiSlices) {
     while (is<mNPhiSlices && mPhiBin2Slice[is]==newSl) { // select similar slices 
       slMax++;
@@ -184,11 +184,16 @@ void MatLayerCyl::optimizePhiSlices(float maxRelDiff)
     }
     if (slMax>slMin || newSl!=slMin) {  // merge or shift slices
       mSliceCosSin[newSl] = mSliceCosSin[slMin];
-      mCells[newSl] = mCells[slMin];
-      for (int ism=slMin+1;ism<=slMax;ism++) {
-	mCells[newSl] += mCells[ism];
+      float norm = 1.f/(1.f+slMax-slMin);
+      for (int iz=mNZBins;iz--;) {
+	int iDest = newSl*mNZBins+iz, iSrc = slMin*mNZBins+iz;
+	mCells[iDest] = mCells[ iSrc ];
+	for (int ism=slMin+1;ism<=slMax;ism++) {
+	  iSrc = ism*mNZBins+iz;
+	  mCells[iDest] += mCells[iSrc];
+	}
+	mCells[iDest].scale(norm);
       }
-      mCells[newSl].scale(1.f/(1.f+slMax-slMin));
       LOG(INFO)<<"mapping "<<slMin<<":"<<slMax<<" to new slice "<<newSl<<FairLogger::endl;
     }
     newSl++;
@@ -196,7 +201,7 @@ void MatLayerCyl::optimizePhiSlices(float maxRelDiff)
   }
   mNPhiSlices = newSl;
   LOG(INFO)<<"Updated Nslices = "<<mNPhiSlices<<FairLogger::endl;
-  mCells.resize(mNPhiSlices);
+  mCells.resize(int(mNZBins)*mNPhiSlices);
   mSliceCosSin.resize(mNPhiSlices);
 }
   
@@ -211,8 +216,8 @@ void MatLayerCyl::print(bool data) const
     return;
   }
   for (int ip=0;ip<getNPhiSlices();ip++) {
-    short ib0,ib1;
-    short nb = getNPhiBinsInSlice(ip,ib0,ib1);
+    int ib0,ib1;
+    int nb = getNPhiBinsInSlice(ip,ib0,ib1);
     printf("phi slice: %d (%d bins %d-%d %.4f:%.4f) ... [iz/<rho>/<x/x0>] \n",ip,nb,ib0,ib1,mDPhi*ib0,mDPhi*(ib1+1));
     for (int iz=0;iz<mNZBins;iz++) {
       auto cell = getCell(ib0,iz);

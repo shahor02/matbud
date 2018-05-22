@@ -71,33 +71,33 @@ class MatLayerCyl {
   ~MatLayerCyl() = default;
   
   // ----------------------- segmentation 
-  void  initSegmentation(float rMin,float rMax,float zHalfSpan,short nz,short nphi);
+  void  initSegmentation(float rMin,float rMax,float zHalfSpan,int nz,int nphi);
   float getRMin()        const {return mRMin;}
   float getRMax()        const {return mRMax;}
   float getZHalf()       const {return mZHalf;}
   float getZMin()        const {return -getZHalf();}
   float getZMax()        const {return getZHalf();}
-  short getNZBins()      const {return mNZBins;}
-  short getNPhiBins()    const {return mNPhiBins;}
+  int   getNZBins()      const {return mNZBins;}
+  int   getNPhiBins()    const {return mNPhiBins;}
   // actual number of phi slices stored
-  short getNPhiSlices()  const {return mNPhiSlices;}
-  short getNPhiBinsInSlice(int i) const;
+  int   getNPhiSlices()  const {return mNPhiSlices;}
+  int   getNPhiBinsInSlice(int i) const;
   
   float getRMin2()       const {return mRMin2;}
   float getRMax2()       const {return mRMax2;}
 
   void print(bool data=false) const;
   void populateFromTGeo(int ntrPerCell=10);
-  void populateFromTGeo(short ip, short iz, int ntrPerCell);
+  void populateFromTGeo(int ip, int iz, int ntrPerCell);
   
   // linearized cell ID
-  int getCellID(short iphi,short iz) const {
+  int getCellID(int iphi,int iz) const {
     return int(phiBin2Slice(iphi))*mNZBins + iz;
   }
   
   // obtain material cell, cell ID must be valid
-  const MatCell& getCell(short iphi, short iz)  const {return mCells[getCellID(iphi,iz)];}
-  MatCell& getCell(short iphi, short iz)              {return mCells[getCellID(iphi,iz)];}
+  const MatCell& getCell(int iphi, int iz)  const {return mCells[getCellID(iphi,iz)];}
+  MatCell& getCell(int iphi, int iz)              {return mCells[getCellID(iphi,iz)];}
   
   // ---------------------- Z slice manipulation
   // convert Z to Zslice
@@ -106,24 +106,24 @@ class MatLayerCyl {
   int getZBinID(float z)        const {return int((z-getZMin())*mDZInv);}
 
   // lower boundary of Z slice
-  float getZBinMin(short id)  const {return getZMin() + id*mDZ;}
+  float getZBinMin(int id)  const {return getZMin() + id*mDZ;}
 
   // upper boundary of Z slice
-  float getZBinMax(short id)  const {return getZMin() + (id+1)*mDZ;}
+  float getZBinMax(int id)  const {return getZMin() + (id+1)*mDZ;}
 
   // ---------------------- Phi slice manipulation (0:2pi convention, no check is done)
   // convert Phi (in 0:2pi convention) to PhiBinID
-  short getPhiBinID(float phi)  const { return short(phi*mDPhiInv);}
-  short phiBin2Slice(short i)    const {return (i>=0 && i<mNPhiBins) ? mPhiBin2Slice[i] : -1;}
-  short getEdgePhiBinOfSlice(short phiBin, short dir) const;
-  short getPhiSliceID(float phi)   const { return phiBin2Slice(getPhiBinID(phi));}
-  short getNPhiBinsInSlice(short iSlice, short &binMin, short &binMax) const;
+  int getPhiBinID(float phi)  const { return int(phi*mDPhiInv);}
+  int phiBin2Slice(int i)     const {return (i>=0 && i<mNPhiBins) ? mPhiBin2Slice[i] : -1;}
+  int getEdgePhiBinOfSlice(int phiBin, int dir) const;
+  int getPhiSliceID(float phi)   const { return phiBin2Slice(getPhiBinID(phi));}
+  int getNPhiBinsInSlice(int iSlice, int &binMin, int &binMax) const;
   
   // lower boundary of phi slice
-  float getPhiBinMin(short id)     const {return id*mDPhi;}
+  float getPhiBinMin(int id)     const {return id*mDPhi;}
 
   // upper boundary of phi slice
-  float getPhiBinMax(short id)     const {return (id+1)*mDPhi;}
+  float getPhiBinMax(int id)     const {return (id+1)*mDPhi;}
 
   // sin and cosine of the slice lower angle
   const std::pair<float,float>& getCosSinSlice(int i) const {return mSliceCosSin[i];}
@@ -164,7 +164,7 @@ class MatLayerCyl {
 };
 
 //________________________________________________________________________________
-inline short MatLayerCyl::getEdgePhiBinOfSlice(short phiBin, short dir) const
+inline int MatLayerCyl::getEdgePhiBinOfSlice(int phiBin, int dir) const
 {
   // Get edge bin (in direction dir) of the slice, to which phiBin belongs
   // No check for phiBin validity is done
