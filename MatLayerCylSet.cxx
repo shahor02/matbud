@@ -168,7 +168,7 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
   // get material budget traversed on the line between point0 and point1
   MatCell rval;
   short lmin,lmax; // get innermost and outermost relevant layer
-  if (!getLayersRange(point0,point1,lmin,lmax)) {
+  if (!getLayersRange(point0.X(),point0.Y(),point1.X(),point1.Y(),lmin,lmax)) {
     return rval;
   }
   Ray ray(point0,point1);
@@ -219,20 +219,37 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
 }
 
 //_________________________________________________________________________________________________
-bool MatLayerCylSet::getLayersRange(const Point3D<float> &point0,const Point3D<float> &point1, short& lmin,short& lmax) const
+bool MatLayerCylSet::getLayersRange(float x0, float y0, float x1, float y1, short& lmin,short& lmax) const
 {
   // get range of layers corresponding to rmin/rmax
-  //
+  //  
   // tmp,slow, TODO
   lmin = lmax = -1;
-  float rmin2 = point0.Perp2();
-  float rmax2 = point1.Perp2();  
+  float rmin2 = x0*x0+y0*y0;
+  float rmax2 = x1*x1+y1*y1;
   if (rmin2>rmax2) {
     std::swap(rmin2,rmax2);
   }
+  // estimate point of closest approach to origin as the crossing of normal from the origin to input vector
+  float dx = x1-x0, dy = y1-y0;
+  float dr2 = dx*dx+dy*dy;
+  if (dr2<Ray::Tiny) return false;
+  float tNorm = -(x0*dx + y1*dy)/dr2;
+  float xNorm = x0+tNorm*dx, yNorm = y1+tNorm*dy;
+  printf("TNorm = %f | X=%+e Y=%+e\n", tNorm, xNorm, yNorm);
+
+  if (tNorm>0. && tNorm<1.) {   
+    float oldrm2 = rmin2;
+    rmin2 = xNorm*xNorm + yNorm*yNorm;
+    printf("Redefine rmin2 from %e to %e\n",oldrm2,rmin2);
+  }
+  
   if (rmin2>=getRMax2() || rmax2<=getRMin2()) {
     return false;
   }
+
+  
+  
   for (lmin=0;lmin<getNLayers();lmin++) {
     const auto & lr =  getLayer(lmin);
     if (lr.getRMax2()>rmin2) {

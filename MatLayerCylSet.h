@@ -33,7 +33,7 @@ class MatLayerCylSet {
   void addLayer(float rmin,float rmax, float zmax, float dz, float drphi);
   const MatLayerCyl& getLayer(int i) const {return mLayers[i];}
   const std::vector<MatLayerCyl>& getLayers() const {return mLayers;}
-
+  bool  getLayersRange(float x0, float y0, float x1, float y1, short& lmin,short& lmax) const;
   float getRMin() const {return mRMin;}
   float getRMax() const {return mRMax;}
   float getZMax() const {return mZMax;}
@@ -54,8 +54,6 @@ class MatLayerCylSet {
 
   MatCell getMatBudget(const Point3D<float> &point0,const Point3D<float> &point1) const;
   MatCell getMatBudget(float x0, float y0, float z0, float x1, float y1, float z1) const;
-
-  bool getLayersRange(const Point3D<float> &point0,const Point3D<float> &point1, short& lmin,short& lmax) const;
   
  protected:
   float mRMin = 0.f; ///< min radius

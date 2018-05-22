@@ -16,8 +16,8 @@
 
 //______________________________________________________
 Ray::Ray(const Point3D<float> point0,const Point3D<float> point1)
-:mP0(point0)
-,mP1(point1)
+  :mP0(point0)
+  ,mP1(point1)
   ,mDx(point1.X()-point0.X())
   ,mDy(point1.Y()-point0.Y())
   ,mDz(point1.Z()-point0.Z())
@@ -28,6 +28,22 @@ Ray::Ray(const Point3D<float> point0,const Point3D<float> point1)
   mXDxPlusYDyRed = -mXDxPlusYDy*mDist2i;
   mXDxPlusYDy2 = mXDxPlusYDy*mXDxPlusYDy;
   mR02 = point0.Perp2();
+}
+
+//______________________________________________________
+Ray::Ray(float x0, float y0, float z0, float x1, float y1, float z1)
+  :mP0(x0,y0,z0)
+  ,mP1(x1,y1,z1)
+  ,mDx(x1-x0)
+  ,mDy(y1-y0)
+  ,mDz(z1-z0)
+{
+  mDist2 = mDx*mDx + mDy*mDy;
+  mDist2i = mDist2>0 ? 1.f/mDist2 : 0.f;
+  mXDxPlusYDy = x0*mDx + y0*mDy;
+  mXDxPlusYDyRed = -mXDxPlusYDy*mDist2i;
+  mXDxPlusYDy2 = mXDxPlusYDy*mXDxPlusYDy;
+  mR02 = x0*x0+y0*y0;
 } 
 
 //______________________________________________________

@@ -39,6 +39,7 @@ class Ray {
   static constexpr float Tiny = 1e-9;
 
   Ray(const Point3D<float> point0,const Point3D<float> point1);
+  Ray(float x0, float y0, float z0, float x1, float y1, float z1);
   
   int   crossLayer(const MatLayerCyl& lr);
   bool  crossCircleR(float r2, CrossPar& cross) const;
