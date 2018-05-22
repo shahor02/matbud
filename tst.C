@@ -1,7 +1,8 @@
 
 MatLayerCylSet st;
 
-void tst(float rmin=0,float rmax=50,int nr=50, float zmax=50, float dz=1.f, float drphi=0.5f)
+//void tst(float rmin=0,float rmax=50,int nr=50, float zmax=50, float dz=1.f, float drphi=0.5f)
+void tst(float rmin=30,float rmax=40,int nr=10, float zmax=50, float dz=1.f, float drphi=0.5f)
 {
   /* 
      // now this is loaded via loadLibs.C

@@ -49,10 +49,10 @@ void MatLayerCyl::initSegmentation(float rMin,float rMax,float zHalfSpan,short n
   mRMax2 = mRMax*mRMax;
   
   mDZ = (mZHalf + mZHalf) / mNZBins;
-  mDZInv = 1.f/mDZInv;
+  mDZInv = 1.f/mDZ;
 
   mDPhi = o2::constants::math::TwoPI / mNPhiBins;
-  mDPhiInv = 1.f/mDPhiInv;
+  mDPhiInv = 1.f/mDPhi;
   //
   mNPhiSlices = mNPhiBins;
   mPhiBin2Slice.resize(mNPhiBins);
@@ -197,7 +197,6 @@ void MatLayerCyl::optimizePhiSlices(float maxRelDiff)
   mNPhiSlices = newSl;
   LOG(INFO)<<"Updated Nslices = "<<mNPhiSlices<<FairLogger::endl;
   mCells.resize(mNPhiSlices);
-  mPhiBin2Slice.resize(mNPhiSlices);
   mSliceCosSin.resize(mNPhiSlices);
 }
   

@@ -175,7 +175,7 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
   short lrID = lmax;
   std::array<Ray::CrossPar,2> tpar;
   float tAcc = 0.f; // accumulated t over layers
-  do { // go from outside to inside
+  while (lrID>=lmin) { // go from outside to inside
     const auto& lr = getLayer(lrID);
     int nc = ray.crossLayer(lr);
     for (int ic=nc;ic--;) {
@@ -188,27 +188,26 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
       } 
       auto phiIDStop = phiIDLast + stepPhi;
       // TODO TOFINISH
-      while(1) {
+      float tStart = cross.first, tEnd = 0.f;
+      do {
 	// get the path in the current phi slice
-	auto phiIDNext = phiID + stepPhi;
-	if (phiIDNext!=phiIDStop) { // last slice still not reached
-	  // ray reaches the boundary of current slice, determine its angle
-	  auto t = ray.crossRadial( lr, stepPhi>0 ? phiIDNext+1 : phiIDNext );
-	  
+	if (phiID==phiIDLast) {
+	  tEnd = cross.second;
 	}
-	phiID = phiIDNext;
-      }
-      
-      auto zBin0 = lr.getZBinID(ray.getZ(cross.first));
-      auto zBin1 = lr.getZBinID(ray.getZ(cross.second));
-      
-
-      
-      auto xyz0 = ray.getPos(cross.first);
-      auto xyz1 = ray.getPos(cross.second);      
-    }
-    
-  } while(1);
+	else { // last phi slice still not reached
+	  tEnd = ray.crossRadial( lr, stepPhi>0 ? phiID+1 : phiID );
+	}
+	auto zBin0 = lr.getZBinID(ray.getZ(tStart));
+	auto zBin1 = lr.getZBinID(ray.getZ(tEnd));
+	printf("cross#%d : account %f<t<%f at phiSlice %d | Zbins: %d %d\n",ic,tStart,tEnd,phiID,zBin0,zBin1);
+	//
+	tStart = tEnd;
+	phiID += stepPhi;
+	
+      } while(phiID!=phiIDStop);
+    }    
+    lrID--;
+  } // loop over layers
   
 
   return rval;
