@@ -17,23 +17,21 @@
 //______________________________________________________
 Ray::Ray(const Point3D<float> point0,const Point3D<float> point1)
   :mP0(point0)
-  ,mP1(point1)
   ,mDx(point1.X()-point0.X())
   ,mDy(point1.Y()-point0.Y())
   ,mDz(point1.Z()-point0.Z())
 {
   mDist2 = mDx*mDx + mDy*mDy;
   mDist2i = mDist2>0 ? 1.f/mDist2 : 0.f;
-  mXDxPlusYDy = point0.X()*mDx + point0.Y()*mDy;
+  mXDxPlusYDy = mP0.X()*mDx + mP0.Y()*mDy;
   mXDxPlusYDyRed = -mXDxPlusYDy*mDist2i;
   mXDxPlusYDy2 = mXDxPlusYDy*mXDxPlusYDy;
-  mR02 = point0.Perp2();
+  mR02 = mP0.Perp2();
 }
 
 //______________________________________________________
 Ray::Ray(float x0, float y0, float z0, float x1, float y1, float z1)
   :mP0(x0,y0,z0)
-  ,mP1(x1,y1,z1)
   ,mDx(x1-x0)
   ,mDy(y1-y0)
   ,mDz(z1-z0)
@@ -98,4 +96,26 @@ int Ray::crossLayer(const MatLayerCyl& lr)
 }
 
 
+//______________________________________________________
+void Ray::getMinMaxR2(float &rmin2, float& rmax2) const
+{
+  // calculate min and max R2
+  // r^2(t) = mR02 + t^2 (mDx^2+mDy^2) + 2t*mXDxPlusYDy
+  // => r1^2 = mR02 + mDist2 + 2*mXDxPlusYDy
+  // hence r1>r2 if mXDxPlusYDyRed<0.5
 
+  rmax2 = mR02;
+  if (mXDxPlusYDyRed<0.5) {
+    rmax2 += mDist2 + mXDxPlusYDy + mXDxPlusYDy;
+  }
+  if (mXDxPlusYDyRed>0. && mXDxPlusYDyRed<1.) {   
+    // estimate point of closest approach to origin as the crossing of normal from the origin to input vector
+    float xMin = mP0.X() + mXDxPlusYDyRed*mDx, yMin = mP0.Y() + mXDxPlusYDyRed*mDy;
+    rmin2 = xMin*xMin + yMin*yMin;
+    rmax2 = mXDxPlusYDyRed<0.5 ? mP1.Perp2() : mR02;
+    return;
+  }
+  else {
+    
+  }
+}

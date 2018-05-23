@@ -34,7 +34,6 @@ class Ray {
 
   using CrossPar = std::pair<float,float>;
   
-  
   static constexpr float InvalidT = -1e9;
   static constexpr float Tiny = 1e-9;
 
@@ -49,6 +48,10 @@ class Ray {
   float crossZ(float z) const;
 
   const CrossPar& getCrossParams(int i) const { return mCrossParams[i];}
+
+  const Point3D<float>& getPoint0() const {return mP0;}
+
+  void getMinMaxR2(float &rmin2, float& rmax2) const;
   
   Point3D<float> getPos(float t) const {
     return Point3D<float>(mP0.X()+t*mDx,mP0.Y()+t*mDy,mP0.Z()+t*mDz);
@@ -64,10 +67,9 @@ class Ray {
   
   bool validateZRange(CrossPar& cpar, const MatLayerCyl& lr) const;
   
- private:
+  //private:
   
   Point3D<float> mP0;         ///< entrance point
-  Point3D<float> mP1;         ///< exit point 
   float mDx = 0.f;            ///< X distance
   float mDy = 0.f;            ///< Y distance
   float mDz = 0.f;            ///< Z distance

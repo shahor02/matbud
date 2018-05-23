@@ -168,11 +168,11 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
 {
   // get material budget traversed on the line between point0 and point1
   MatCell rval;
+  Ray ray(point0,point1);
   short lmin,lmax; // get innermost and outermost relevant layer
-  if (!getLayersRange(point0.X(),point0.Y(),point1.X(),point1.Y(),lmin,lmax)) {
+  if (!getLayersRange(ray,lmin,lmax)) {
     return rval;
   }
-  Ray ray(point0,point1);
   short lrID = lmax;
   std::array<Ray::CrossPar,2> tpar;
   float tAcc = 0.f; // accumulated t over layers
@@ -196,37 +196,51 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
       }
       int stepPhiID = phiID > phiIDLast ? -1 : 1; 
       bool checkMorePhi = true;
-      auto tStart = cross.first, tEnd = 0.f;
+      auto tStartPhi = cross.first, tEndPhi = 0.f;
       do {
 	// get the path in the current phi slice
 	if (phiID==phiIDLast) {
-	  tEnd = cross.second;
+	  tEndPhi = cross.second;
 	  checkMorePhi = false;
 	}
 	else { // last phi slice still not reached
-	  tEnd = ray.crossRadial( lr, (stepPhiID>0 ? phiID+1 : phiID)%lr.getNPhiSlices() );
+	  tEndPhi = ray.crossRadial( lr, (stepPhiID>0 ? phiID+1 : phiID) % lr.getNPhiSlices() );
 	}
-	auto pos0 = ray.getPos(tStart);
-	auto pos1 = ray.getPos(tEnd);
-	auto zID = lr.getZBinID(ray.getZ(tStart));
-	auto zIDLast = lr.getZBinID(ray.getZ(tEnd));
+	auto zID = lr.getZBinID(ray.getZ(tStartPhi));
+	auto zIDLast = lr.getZBinID(ray.getZ(tEndPhi));
 	// check if Zbins are crossed
-	/*
+	printf("-- Zdiff (%3d : %3d) mode: t: %+e %+e\n",zID,zIDLast,tStartPhi,tEndPhi);
 	if (zID!=zIDLast) {
 	  auto stepZID = zID<zIDLast ? 1:-1;
 	  bool checkMoreZ = true;
+	  auto tStartZ = tStartPhi, tEndZ = 0.f;
 	  do {
-	    
-	    
+	    if (zID==zIDLast) {
+	      tEndZ = tEndPhi;
+	      checkMoreZ = false;
+	    }
+	    else {
+	      tEndZ = ray.crossZ( lr.getZBinMin( stepZID>0 ? zID+1 : zID) );
+	    }
+	    auto pos0 = ray.getPos(tStartZ);
+	    auto pos1 = ray.getPos(tEndZ);
+	    printf("Lr#%3d / cross#%d : account %f<t<%f at phiSlice %d | Zbin: %3d (%3d) |[%+e %+e +%e]:[%+e %+e %+e]\n",
+		   lrID,ic,tEndZ,tStartZ,phiID%lr.getNPhiSlices(),zID,zIDLast,
+		   pos0.X(),pos0.Y(),pos0.Z(), pos1.X(),pos1.Y(),pos1.Z() );	    
+	    tStartZ = tEndZ;
 	    zID += stepZID;
 	  } while(checkMoreZ);
 	}
-	*/
-	printf("Lr#%3d / cross#%d : account %f<t<%f at phiSlice %d | Zbins: %d %d |[%+e %+e +%e]:[%+e %+e %+e]\n",
-	       lrID,ic,tEnd,tStart,phiID%lr.getNPhiSlices(),zID,zIDLast,
-	       pos0.X(),pos0.Y(),pos0.Z(), pos1.X(),pos1.Y(),pos1.Z() );
+	else {
+	  auto pos0 = ray.getPos(tStartPhi);
+	  auto pos1 = ray.getPos(tEndPhi);
+
+	  printf("Lr#%3d / cross#%d : account %f<t<%f at phiSlice %d | Zbin: %3d ----- |[%+e %+e +%e]:[%+e %+e %+e]\n",
+		 lrID,ic,tEndPhi,tStartPhi,phiID%lr.getNPhiSlices(),zID,
+		 pos0.X(),pos0.Y(),pos0.Z(), pos1.X(),pos1.Y(),pos1.Z() );
+	}
 	//
-	tStart = tEnd;
+	tStartPhi = tEndPhi;
 	phiID += stepPhiID;
 	
       } while(checkMorePhi);
@@ -238,27 +252,14 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
 }
 
 //_________________________________________________________________________________________________
-bool MatLayerCylSet::getLayersRange(float x0, float y0, float x1, float y1, short& lmin,short& lmax) const
+bool MatLayerCylSet::getLayersRange(const Ray& ray, short& lmin,short& lmax) const
 {
   // get range of layers corresponding to rmin/rmax
   //  
   // tmp,slow, TODO
   lmin = lmax = -1;
-  float rmin2 = x0*x0+y0*y0;
-  float rmax2 = x1*x1+y1*y1;
-  if (rmin2>rmax2) {
-    std::swap(rmin2,rmax2);
-  }
-  // estimate point of closest approach to origin as the crossing of normal from the origin to input vector
-  float dx = x1-x0, dy = y1-y0;
-  float dr2 = dx*dx+dy*dy;
-  if (dr2<Ray::Tiny) return false;
-  float tNorm = -(x0*dx + y0*dy)/dr2;
-  if (tNorm>0. && tNorm<1.) {   
-    float oldrm2 = rmin2, xNorm = x0+tNorm*dx, yNorm = y0+tNorm*dy;
-    rmin2 = xNorm*xNorm + yNorm*yNorm;
-    printf("Redefine rmin2 from %e to %e\n",oldrm2,rmin2);
-  }
+  float rmin2,rmax2;
+  ray.getMinMaxR2(rmin2,rmax2);
   
   if (rmin2>=getRMax2() || rmax2<=getRMin2()) {
     return false;
