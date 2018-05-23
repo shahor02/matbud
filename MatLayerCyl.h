@@ -90,14 +90,22 @@ class MatLayerCyl {
   void populateFromTGeo(int ntrPerCell=10);
   void populateFromTGeo(int ip, int iz, int ntrPerCell);
   
-  // linearized cell ID
+  // linearized cell ID from phi slice and z bin
   int getCellID(int iphi,int iz) const {
-    return int(phiBin2Slice(iphi))*mNZBins + iz;
+    return iphi*mNZBins + iz;
+  }
+  
+  // linearized cell ID from phi bin and z bin
+  int getCellIDPhiBin(int iphi,int iz) const {
+    return getCellID(phiBin2Slice(iphi),iz);
   }
   
   // obtain material cell, cell ID must be valid
-  const MatCell& getCell(int iphi, int iz)  const {return mCells[getCellID(iphi,iz)];}
-  MatCell& getCell(int iphi, int iz)              {return mCells[getCellID(iphi,iz)];}
+  const MatCell& getCellPhiBin(int iphi, int iz)  const {return mCells[getCellIDPhiBin(iphi,iz)];}
+  MatCell& getCellPhiBin(int iphi, int iz)              {return mCells[getCellIDPhiBin(iphi,iz)];}
+
+  const MatCell& getCell(int iphiSlice, int iz)  const  {return mCells[getCellID(iphiSlice,iz)];}
+  MatCell& getCell(int iphiSlice, int iz)               {return mCells[getCellID(iphiSlice,iz)];}
   
   // ---------------------- Z slice manipulation
   // convert Z to Zslice

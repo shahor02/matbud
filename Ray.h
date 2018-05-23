@@ -52,6 +52,9 @@ class Ray {
   const Point3D<float>& getPoint0() const {return mP0;}
 
   void getMinMaxR2(float &rmin2, float& rmax2) const;
+
+  float getDist() const { return mDistXYZ; }
+  float getDist(float deltaT) const { return mDistXYZ*(deltaT>0 ? deltaT : -deltaT); }
   
   Point3D<float> getPos(float t) const {
     return Point3D<float>(mP0.X()+t*mDx,mP0.Y()+t*mDy,mP0.Z()+t*mDz);
@@ -67,18 +70,20 @@ class Ray {
   
   bool validateZRange(CrossPar& cpar, const MatLayerCyl& lr) const;
   
-  //private:
+ private:
   
   Point3D<float> mP0;         ///< entrance point
   float mDx = 0.f;            ///< X distance
   float mDy = 0.f;            ///< Y distance
   float mDz = 0.f;            ///< Z distance
-  float mDist2 = 0.f;         ///< dist^2 between points in XY plane
-  float mDist2i = 0.f;        ///< inverse dist^2 between points in XY plane
+  float mDistXY2 = 0.f;       ///< dist^2 between points in XY plane
+  float mDistXY2i = 0.f;      ///< inverse dist^2 between points in XY plane
+  float mDistXYZ = 0.f;       ///< distance between 2 points
   float mXDxPlusYDy = 0.f;    ///< aux x0*DX+y0*DY
-  float mXDxPlusYDyRed = 0.f; ///< aux (x0*DX+y0*DY)/mDist2
+  float mXDxPlusYDyRed = 0.f; ///< aux (x0*DX+y0*DY)/mDistXY2
   float mXDxPlusYDy2 = 0.f;   ///< aux (x0*DX+y0*DY)^2  
   float mR02 = 0.f;           ///< radius^2 of mP0
+  float mR12 = 0.f;           ///< radius^2 of mP1
   std::array<CrossPar,2> mCrossParams; ///< parameters of crossing the layer
 
   ClassDefNV(Ray,1);
@@ -90,13 +95,13 @@ inline bool Ray::crossCircleR(float r2, CrossPar& cross) const
 {
   // calculate parameters t of intersection with circle of radius r^2
   // calculated as solution of equation
-  // t^2*mDist2 +- sqrt( mXDxPlusYDy^2 - mDist2*(mR02 - r^2) )
+  // t^2*mDistXY2 +- sqrt( mXDxPlusYDy^2 - mDistXY2*(mR02 - r^2) )
   // 
-  float det = mXDxPlusYDy2 - mDist2*(mR02 - r2);
+  float det = mXDxPlusYDy2 - mDistXY2*(mR02 - r2);
   if (det<0) return false;  // no intersection
-  float detRed = std::sqrt(det)*mDist2i;
-  cross.first  = mXDxPlusYDyRed + detRed; // (-mXDxPlusYDy + det)*mDist2i;
-  cross.second = mXDxPlusYDyRed - detRed; // (-mXDxPlusYDy - det)*mDist2i;
+  float detRed = std::sqrt(det)*mDistXY2i;
+  cross.first  = mXDxPlusYDyRed + detRed; // (-mXDxPlusYDy + det)*mDistXY2i;
+  cross.second = mXDxPlusYDyRed - detRed; // (-mXDxPlusYDy - det)*mDistXY2i;
   return true;
 }
 
@@ -143,5 +148,26 @@ inline bool Ray::validateZRange(CrossPar& cpar, const MatLayerCyl& lr) const
   }
   return true;
 }
+
+//______________________________________________________
+inline void Ray::getMinMaxR2(float &rmin2, float& rmax2) const
+{
+  // calculate min and max R2
+  if (mR02>mR12) {
+    rmin2 = mR12;
+    rmax2 = mR02;
+  }
+  else {
+    rmin2 = mR02;
+    rmax2 = mR12;
+  }
+  if (mXDxPlusYDyRed>0.f && mXDxPlusYDyRed<1.f) {
+    // estimate point of closest approach to origin as the crossing of normal from the origin to input vector
+    // use r^2(t) = mR02 + t^2 (mDx^2+mDy^2) + 2t*mXDxPlusYDy
+    float xMin = mP0.X() + mXDxPlusYDyRed*mDx, yMin = mP0.Y() + mXDxPlusYDyRed*mDy;
+    rmin2 = xMin*xMin + yMin*yMin;
+  }
+}
+
 
 #endif

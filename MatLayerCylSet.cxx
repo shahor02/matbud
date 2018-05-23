@@ -107,7 +107,7 @@ void MatLayerCylSet::dumpToTree(const std::string outName) const
       float x = r*cs, y = r*sn;
       for (int iz=0;iz<lr.getNZBins();iz++) {
 	float z = 0.5*( lr.getZBinMin(iz)+lr.getZBinMax(iz) );
-	auto cell = lr.getCell(ip,iz);
+	auto cell = lr.getCellPhiBin(ip,iz);
 	dump<<"cell"<<"ilr="<<i<<"r="<<r<<"phi="<<phi<<"x="<<x<<"y="<<y<<"z="<<z<<"ip="<<ip<<"ips="<<ips<<"iz="<<iz
 	    <<"mrgnxt="<<merge<<"val="<<cell<<"\n";
       }
@@ -174,8 +174,7 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
     return rval;
   }
   short lrID = lmax;
-  std::array<Ray::CrossPar,2> tpar;
-  float tAcc = 0.f; // accumulated t over layers
+  float totalStep = 0.f; // accumulated t over layers
   while (lrID>=lmin) { // go from outside to inside
     const auto& lr = getLayer(lrID);
     int nc = ray.crossLayer(lr);
@@ -222,19 +221,31 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
 	    else {
 	      tEndZ = ray.crossZ( lr.getZBinMin( stepZID>0 ? zID+1 : zID) );
 	    }
+	    // account materials of this step
+	    float step = tEndZ-tStartZ; // the real step is |lr.getDist(tEnd-tStart)|, will rescale all later
+	    const auto& cell = lr.getCell(phiID, zID);
+	    rval.mRho += cell.mRho*step;
+	    rval.mX2X0 += cell.mX2X0*step;
+	    totalStep += step;
+	    
 	    auto pos0 = ray.getPos(tStartZ);
 	    auto pos1 = ray.getPos(tEndZ);
 	    printf("Lr#%3d / cross#%d : account %f<t<%f at phiSlice %d | Zbin: %3d (%3d) |[%+e %+e +%e]:[%+e %+e %+e]\n",
 		   lrID,ic,tEndZ,tStartZ,phiID%lr.getNPhiSlices(),zID,zIDLast,
-		   pos0.X(),pos0.Y(),pos0.Z(), pos1.X(),pos1.Y(),pos1.Z() );	    
+		   pos0.X(),pos0.Y(),pos0.Z(), pos1.X(),pos1.Y(),pos1.Z() );
 	    tStartZ = tEndZ;
 	    zID += stepZID;
 	  } while(checkMoreZ);
 	}
 	else {
+	  float step = tEndPhi-tStartPhi; // the real step is |lr.getDist(tEnd-tStart)|, will rescale all later
+	  const auto& cell = lr.getCell(phiID, zID);
+	  rval.mRho += cell.mRho*step;
+	  rval.mX2X0 += cell.mX2X0*step;
+	  totalStep += step;
+	  
 	  auto pos0 = ray.getPos(tStartPhi);
 	  auto pos1 = ray.getPos(tEndPhi);
-
 	  printf("Lr#%3d / cross#%d : account %f<t<%f at phiSlice %d | Zbin: %3d ----- |[%+e %+e +%e]:[%+e %+e %+e]\n",
 		 lrID,ic,tEndPhi,tStartPhi,phiID%lr.getNPhiSlices(),zID,
 		 pos0.X(),pos0.Y(),pos0.Z(), pos1.X(),pos1.Y(),pos1.Z() );
@@ -247,7 +258,13 @@ MatCell MatLayerCylSet::getMatBudget(const Point3D<float> &point0,const Point3D<
     }    
     lrID--;
   } // loop over layers
-  
+
+  if (totalStep!=0.) {
+    rval.mRho /= totalStep; // average
+    rval.mX2X0 *= ray.getDist(); // normalize
+    if (rval.mX2X0<0.f) rval.mX2X0 = -rval.mX2X0;
+  }
+  printf("<rho> = %e, x2X0 = %e  | step = %e\n",rval.mRho, rval.mX2X0, totalStep);
   return rval;
 }
 

@@ -112,15 +112,15 @@ void MatLayerCyl::populateFromTGeo(int ip, int iz, int ntrPerCell)
       auto bud = o2::Base::GeometryManager::MeanMaterialBudget(mRMin*cs,mRMin*sn,zs,mRMax*cs,mRMax*sn,zs);
       if (bud.length>0.) {
 	meanRho += bud.length*bud.meanRho;
-	meanX2X0 += bud.length*bud.meanX2X0;
+	meanX2X0 += bud.meanX2X0; // we store actually not X2X0 but 1./X0
 	lgt += bud.length;
       }	  
     }
   }
   if (lgt>0.) {
-    auto &cell = getCell(ip,iz);
-    cell.mRho = meanRho/lgt;
-    cell.mX2X0 = meanX2X0/lgt;
+    auto &cell = getCellPhiBin(ip,iz);
+    cell.mRho = meanRho/lgt;   // mean rho
+    cell.mX2X0 = meanX2X0/lgt; // mean 1./X0 seen in this cell
   }  
 }
 
@@ -134,8 +134,8 @@ bool MatLayerCyl::canMergePhiSlices(int i,int j, float maxRelDiff, int maxDiffer
   }
   int ndiff = 0; // number of different cells
   for (int iz=getNZBins();iz--;) {
-    const auto &cellI = getCell(i,iz);
-    const auto &cellJ = getCell(j,iz);
+    const auto &cellI = getCellPhiBin(i,iz);
+    const auto &cellJ = getCellPhiBin(j,iz);
     if (cellsDiffer(cellI, cellJ, maxRelDiff)) {
       if (++ndiff>maxDifferent) {
 	return false;
@@ -220,7 +220,7 @@ void MatLayerCyl::print(bool data) const
     int nb = getNPhiBinsInSlice(ip,ib0,ib1);
     printf("phi slice: %d (%d bins %d-%d %.4f:%.4f) ... [iz/<rho>/<x/x0>] \n",ip,nb,ib0,ib1,mDPhi*ib0,mDPhi*(ib1+1));
     for (int iz=0;iz<mNZBins;iz++) {
-      auto cell = getCell(ib0,iz);
+      auto cell = getCellPhiBin(ib0,iz);
       printf("%3d/%.2e/%.2e ",iz,cell.mRho,cell.mX2X0);
       if (((iz+1)%5)==0) {
 	printf("\n");
@@ -240,7 +240,7 @@ void MatLayerCyl::getMeanRMS(MatCell &mean, MatCell &rms) const
   mean.mX2X0 = rms.mX2X0 = 0.f;
   for (int ip=mNPhiBins;ip--;) {
     for (int iz=mNZBins;iz--;) {
-      const auto& cell = getCell(ip,iz);
+      const auto& cell = getCellPhiBin(ip,iz);
       mean.mRho += cell.mRho;
       mean.mX2X0 += cell.mX2X0;
       rms.mRho += cell.mRho*cell.mRho;
