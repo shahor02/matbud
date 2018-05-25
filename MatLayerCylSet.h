@@ -55,15 +55,18 @@ class MatLayerCylSet {
 
   MatCell getMatBudget(const Point3D<float> &point0,const Point3D<float> &point1) const;
   MatCell getMatBudget(float x0, float y0, float z0, float x1, float y1, float z1) const;
+
+  int searchSegment(float val, int low=-1, int high=-1) const;
   
- protected:
+ private:
   float mRMin = 0.f; ///< min radius
   float mRMax = 0.f; ///< max radius
   float mZMax  =0.f; ///< max Z span
   float mRMin2 = 0.f;
   float mRMax2 = 0.f; 
-  std::vector<MatLayerCyl> mLayers; ///< set of cylinrical layers
-
+  std::vector<MatLayerCyl> mLayers;  ///< set of cylinrical layers
+  std::vector<float> mR2Intervals;   ///< limits of layers
+  std::vector<int>   mInterval2LrID; ///< mapping from r2 interval to layer ID
   ClassDefNV(MatLayerCylSet,1);
 };
 

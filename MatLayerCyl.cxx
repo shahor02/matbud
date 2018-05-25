@@ -35,18 +35,15 @@ MatLayerCyl::MatLayerCyl(float rMin,float rMax,float zHalfSpan, float dzMin,floa
 void MatLayerCyl::initSegmentation(float rMin,float rMax,float zHalfSpan,int nz,int nphi)
 {
   // recalculate aux parameters
-  mRMin = rMin;
-  mRMax = rMax;
+  mRMin2 = rMin*rMin;
+  mRMax2 = rMax*rMax;
   mZHalf = zHalfSpan;
   mNZBins = nz;
   mNPhiBins = nphi;
   
-  assert(mRMin<mRMax);
+  assert(mRMin2<mRMax2);
   assert(mNZBins>0);
   assert(mNPhiBins>0);
-
-  mRMin2 = mRMin*mRMin;
-  mRMax2 = mRMax*mRMax;
   
   mDZ = (mZHalf + mZHalf) / mNZBins;
   mDZInv = 1.f/mDZ;
@@ -103,13 +100,13 @@ void MatLayerCyl::populateFromTGeo(int ip, int iz, int ntrPerCell)
 {
   /// populate cell with info extracted from TGeometry, using ntrPerCell test tracks per cell
   
-  float zmn = getZBinMin(iz), phmn = getPhiBinMin(ip), sn,cs;
+  float zmn = getZBinMin(iz), phmn = getPhiBinMin(ip), sn,cs, rMin = getRMin(), rMax = getRMax();
   double meanRho = 0., meanX2X0 = 0., lgt = 0.;;
   for (int isz=ntrPerCell;isz--;) {
     float zs = zmn + (isz+0.5)*mDZ/ntrPerCell;
     for (int isp=ntrPerCell;isp--;) {
       o2::utils::sincosf(phmn + (isp+0.5)*mDPhi/ntrPerCell, sn,cs);
-      auto bud = o2::Base::GeometryManager::MeanMaterialBudget(mRMin*cs,mRMin*sn,zs,mRMax*cs,mRMax*sn,zs);
+      auto bud = o2::Base::GeometryManager::MeanMaterialBudget(rMin*cs,rMin*sn,zs,rMax*cs,rMax*sn,zs);
       if (bud.length>0.) {
 	meanRho += bud.length*bud.meanRho;
 	meanX2X0 += bud.meanX2X0; // we store actually not X2X0 but 1./X0
@@ -211,7 +208,7 @@ void MatLayerCyl::print(bool data) const
   ///< print layer data
   float szkb = float(getSize())/1024;
   printf("Cyl.Layer %.3f<r<%.3f %+.3f<Z<%+.3f | Nphi: %5d (%d slices) Nz: %5d Size: %.3f KB\n",
-	 mRMin,mRMax,getZMin(),getZMax(),mNPhiBins, getNPhiSlices() ,mNZBins, szkb);
+	 getRMin(),getRMax(),getZMin(),getZMax(),mNPhiBins, getNPhiSlices() ,mNZBins, szkb);
   if (!data) {
     return;
   }

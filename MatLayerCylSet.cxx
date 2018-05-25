@@ -69,6 +69,20 @@ void MatLayerCylSet::populateFromTGeo(int ntrPerCel)
     LOG(INFO)<<"populating layer " << i << " NZ: "<<nz<<" NPhi: "<<np<<FairLogger::endl;
     mLayers[i].populateFromTGeo(ntrPerCel);
   }
+  // build layer search structures  
+  mR2Intervals.push_back(mLayers[0].getRMin2());
+  mR2Intervals.push_back(mLayers[0].getRMax2());
+  mInterval2LrID.push_back(0);
+  for (int i=1;i<getNLayers();i++) {
+    auto lr = getLayer(i);
+    if (std::sqrt(lr.getRMin2())>std::sqrt(mR2Intervals.back())+Ray::Tiny) {
+      // register gap
+      mR2Intervals.push_back(lr.getRMin2());
+      mInterval2LrID.push_back(-1);
+    }
+    mR2Intervals.push_back(lr.getRMax2());
+    mInterval2LrID.push_back(i);
+  }
 }
 
 //________________________________________________________________________________
@@ -273,7 +287,6 @@ bool MatLayerCylSet::getLayersRange(const Ray& ray, short& lmin,short& lmax) con
 {
   // get range of layers corresponding to rmin/rmax
   //  
-  // tmp,slow, TODO
   lmin = lmax = -1;
   float rmin2,rmax2;
   ray.getMinMaxR2(rmin2,rmax2);
@@ -281,19 +294,39 @@ bool MatLayerCylSet::getLayersRange(const Ray& ray, short& lmin,short& lmax) con
   if (rmin2>=getRMax2() || rmax2<=getRMin2()) {
     return false;
   }
+  int lmxInt,lmnInt;
+  lmxInt = rmax2<getRMax2() ? searchSegment(rmax2,0) : mR2Intervals.size()-2;
+  lmnInt = rmin2>=getRMin2() ? searchSegment(rmin2,0,lmxInt+1) : 0;
+  lmax = mInterval2LrID[lmxInt];
+  lmin = mInterval2LrID[lmnInt];
+  // make sure lmnInt and/or lmxInt are not in the gap
+  if (lmax<0) {
+    lmax = mInterval2LrID[--lmxInt]; // rmax2 is in the gap, take highest layer below rmax2
+  }
+  if (lmin<0) {
+    lmin = mInterval2LrID[++lmnInt]; // rmin2 is in the gap, take lowest layer above rmin2
+  }
+  return lmin<=lmax; // valid if both are not in the same gap 
+}
 
-  for (lmin=0;lmin<getNLayers();lmin++) {
-    const auto & lr =  getLayer(lmin);
-    if (lr.getRMax2()>rmin2) {
-      break;
-    }
+int MatLayerCylSet::searchSegment(float val, int low, int high) const
+{
+  ///< search segment val belongs to. The val MUST be within the boundaries 
+  if (low<0) {
+    low = 0;
   }
-  for (lmax=lmin;lmax<getNLayers();lmax++) {
-    const auto & lr =  getLayer(lmin);
-    if (lr.getRMax2()>rmax2-Ray::Tiny) {
-      break;
-    }
+  if (high<0) {
+    high = mR2Intervals.size()-1;
   }
-  if (lmax==getNLayers()) lmax = getNLayers()-1;
-  return true;
+  int mid = (low+high)>>1;
+  while( mid!=low) {
+    if (val<mR2Intervals[mid]) {
+      high = mid;
+    }
+    else {
+      low = mid;
+    }
+    mid = (low+high)>>1;
+  }
+  return mid;
 }

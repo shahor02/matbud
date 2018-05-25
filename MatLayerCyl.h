@@ -15,7 +15,7 @@
 #define ALICEO2_MATLAYERCYL_H
 
 #include "Rtypes.h"
-
+#include <cmath>
 
 /**********************************************************************
  *                                                                    *
@@ -72,8 +72,8 @@ class MatLayerCyl {
   
   // ----------------------- segmentation 
   void  initSegmentation(float rMin,float rMax,float zHalfSpan,int nz,int nphi);
-  float getRMin()        const {return mRMin;}
-  float getRMax()        const {return mRMax;}
+  float getRMin()        const {return std::sqrt(mRMin2);}
+  float getRMax()        const {return std::sqrt(mRMax2);}
   float getZHalf()       const {return mZHalf;}
   float getZMin()        const {return -getZHalf();}
   float getZMax()        const {return getZHalf();}
@@ -150,14 +150,11 @@ class MatLayerCyl {
   
  protected:
   
-  float mRMin = 0.f;       ///< min radius
-  float mRMax = 0.f;       ///< max radius
   float mZHalf = 0.f;       ///< Z half span
   short mNZBins = 0;       ///< number of Z bins
   short mNPhiBins = 0;     ///< number of phi bins (logical)
   short mNPhiSlices = 0;   ///< actual number of phi slices
   //
-  // auxiliary varaibles
   float mRMin2 = 0.f;      ///< squared min r
   float mRMax2 = 0.f;      ///< squared max r
   float mDZ = 0.f;         ///< Z slice thickness
