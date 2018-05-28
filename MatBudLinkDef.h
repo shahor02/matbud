@@ -5,6 +5,7 @@
 #pragma link off all functions;
 
 #pragma link C++ class Ray +;
+#pragma link C++ class MatCell +;
 #pragma link C++ class MatLayerCyl +;
 #pragma link C++ class MatLayerCylSet +;
 

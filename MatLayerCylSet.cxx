@@ -66,7 +66,6 @@ void MatLayerCylSet::populateFromTGeo(int ntrPerCel)
   }
   for (int i=0;i<getNLayers();i++) {
     int nz = mLayers[i].getNZBins(), np = mLayers[i].getNPhiBins();
-    LOG(INFO)<<"populating layer " << i << " NZ: "<<nz<<" NPhi: "<<np<<FairLogger::endl;
     mLayers[i].populateFromTGeo(ntrPerCel);
   }
   // build layer search structures  

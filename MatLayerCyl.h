@@ -30,6 +30,8 @@ struct MatCell {
   static constexpr int NParams = 2; // number of material parameters stored
   float mRho = 0.f;      ///< mean density, g/cm^3
   float mX2X0  = 0.f;    ///< fraction of radiaton lenght
+  MatCell() = default;
+  ~MatCell() = default;
   MatCell operator+(const MatCell& rhs) {
     MatCell cell;
     cell.mRho = this->mRho + rhs.mRho;

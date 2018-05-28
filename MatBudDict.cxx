@@ -47,6 +47,38 @@ namespace std {} using namespace std;
 // Header files passed via #pragma extra_include
 
 namespace ROOT {
+   static void *new_MatCell(void *p = 0);
+   static void *newArray_MatCell(Long_t size, void *p);
+   static void delete_MatCell(void *p);
+   static void deleteArray_MatCell(void *p);
+   static void destruct_MatCell(void *p);
+
+   // Function generating the singleton type initializer
+   static TGenericClassInfo *GenerateInitInstanceLocal(const ::MatCell*)
+   {
+      ::MatCell *ptr = 0;
+      static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::MatCell >(0);
+      static ::ROOT::TGenericClassInfo 
+         instance("MatCell", ::MatCell::Class_Version(), "MatLayerCyl.h", 29,
+                  typeid(::MatCell), ::ROOT::Internal::DefineBehavior(ptr, ptr),
+                  &::MatCell::Dictionary, isa_proxy, 4,
+                  sizeof(::MatCell) );
+      instance.SetNew(&new_MatCell);
+      instance.SetNewArray(&newArray_MatCell);
+      instance.SetDelete(&delete_MatCell);
+      instance.SetDeleteArray(&deleteArray_MatCell);
+      instance.SetDestructor(&destruct_MatCell);
+      return &instance;
+   }
+   TGenericClassInfo *GenerateInitInstance(const ::MatCell*)
+   {
+      return GenerateInitInstanceLocal((::MatCell*)0);
+   }
+   // Static variable to force the class initialization
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const ::MatCell*)0x0); R__UseDummy(_R__UNIQUE_DICT_(Init));
+} // end of namespace ROOT
+
+namespace ROOT {
    static void *new_MatLayerCyl(void *p = 0);
    static void *newArray_MatLayerCyl(Long_t size, void *p);
    static void delete_MatLayerCyl(void *p);
@@ -59,7 +91,7 @@ namespace ROOT {
       ::MatLayerCyl *ptr = 0;
       static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::MatLayerCyl >(0);
       static ::ROOT::TGenericClassInfo 
-         instance("MatLayerCyl", ::MatLayerCyl::Class_Version(), "MatLayerCyl.h", 64,
+         instance("MatLayerCyl", ::MatLayerCyl::Class_Version(), "MatLayerCyl.h", 66,
                   typeid(::MatLayerCyl), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &::MatLayerCyl::Dictionary, isa_proxy, 4,
                   sizeof(::MatLayerCyl) );
@@ -137,6 +169,41 @@ namespace ROOT {
    // Static variable to force the class initialization
    static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const ::MatLayerCylSet*)0x0); R__UseDummy(_R__UNIQUE_DICT_(Init));
 } // end of namespace ROOT
+
+//______________________________________________________________________________
+atomic_TClass_ptr MatCell::fgIsA(0);  // static to hold class pointer
+
+//______________________________________________________________________________
+const char *MatCell::Class_Name()
+{
+   return "MatCell";
+}
+
+//______________________________________________________________________________
+const char *MatCell::ImplFileName()
+{
+   return ::ROOT::GenerateInitInstanceLocal((const ::MatCell*)0x0)->GetImplFileName();
+}
+
+//______________________________________________________________________________
+int MatCell::ImplFileLine()
+{
+   return ::ROOT::GenerateInitInstanceLocal((const ::MatCell*)0x0)->GetImplFileLine();
+}
+
+//______________________________________________________________________________
+TClass *MatCell::Dictionary()
+{
+   fgIsA = ::ROOT::GenerateInitInstanceLocal((const ::MatCell*)0x0)->GetClass();
+   return fgIsA;
+}
+
+//______________________________________________________________________________
+TClass *MatCell::Class()
+{
+   if (!fgIsA.load()) { R__LOCKGUARD(gInterpreterMutex); fgIsA = ::ROOT::GenerateInitInstanceLocal((const ::MatCell*)0x0)->GetClass(); }
+   return fgIsA;
+}
 
 //______________________________________________________________________________
 atomic_TClass_ptr MatLayerCyl::fgIsA(0);  // static to hold class pointer
@@ -242,6 +309,39 @@ TClass *MatLayerCylSet::Class()
    if (!fgIsA.load()) { R__LOCKGUARD(gInterpreterMutex); fgIsA = ::ROOT::GenerateInitInstanceLocal((const ::MatLayerCylSet*)0x0)->GetClass(); }
    return fgIsA;
 }
+
+//______________________________________________________________________________
+void MatCell::Streamer(TBuffer &R__b)
+{
+   // Stream an object of class MatCell.
+
+   if (R__b.IsReading()) {
+      R__b.ReadClassBuffer(MatCell::Class(),this);
+   } else {
+      R__b.WriteClassBuffer(MatCell::Class(),this);
+   }
+}
+
+namespace ROOT {
+   // Wrappers around operator new
+   static void *new_MatCell(void *p) {
+      return  p ? new(p) ::MatCell : new ::MatCell;
+   }
+   static void *newArray_MatCell(Long_t nElements, void *p) {
+      return p ? new(p) ::MatCell[nElements] : new ::MatCell[nElements];
+   }
+   // Wrapper around operator delete
+   static void delete_MatCell(void *p) {
+      delete ((::MatCell*)p);
+   }
+   static void deleteArray_MatCell(void *p) {
+      delete [] ((::MatCell*)p);
+   }
+   static void destruct_MatCell(void *p) {
+      typedef ::MatCell current_t;
+      ((current_t*)p)->~current_t();
+   }
+} // end of namespace ROOT for class ::MatCell
 
 //______________________________________________________________________________
 void MatLayerCyl::Streamer(TBuffer &R__b)
@@ -350,7 +450,7 @@ namespace ROOT {
       vector<short> *ptr = 0;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(vector<short>));
       static ::ROOT::TGenericClassInfo 
-         instance("vector<short>", -2, "vector", 216,
+         instance("vector<short>", -2, "vector", 214,
                   typeid(vector<short>), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &vectorlEshortgR_Dictionary, isa_proxy, 0,
                   sizeof(vector<short>) );
@@ -413,7 +513,7 @@ namespace ROOT {
       vector<pair<float,float> > *ptr = 0;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(vector<pair<float,float> >));
       static ::ROOT::TGenericClassInfo 
-         instance("vector<pair<float,float> >", -2, "vector", 216,
+         instance("vector<pair<float,float> >", -2, "vector", 214,
                   typeid(vector<pair<float,float> >), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &vectorlEpairlEfloatcOfloatgRsPgR_Dictionary, isa_proxy, 0,
                   sizeof(vector<pair<float,float> >) );
@@ -476,7 +576,7 @@ namespace ROOT {
       vector<int> *ptr = 0;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(vector<int>));
       static ::ROOT::TGenericClassInfo 
-         instance("vector<int>", -2, "vector", 216,
+         instance("vector<int>", -2, "vector", 214,
                   typeid(vector<int>), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &vectorlEintgR_Dictionary, isa_proxy, 0,
                   sizeof(vector<int>) );
@@ -539,7 +639,7 @@ namespace ROOT {
       vector<float> *ptr = 0;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(vector<float>));
       static ::ROOT::TGenericClassInfo 
-         instance("vector<float>", -2, "vector", 216,
+         instance("vector<float>", -2, "vector", 214,
                   typeid(vector<float>), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &vectorlEfloatgR_Dictionary, isa_proxy, 0,
                   sizeof(vector<float>) );
@@ -602,7 +702,7 @@ namespace ROOT {
       vector<MatLayerCyl> *ptr = 0;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(vector<MatLayerCyl>));
       static ::ROOT::TGenericClassInfo 
-         instance("vector<MatLayerCyl>", -2, "vector", 216,
+         instance("vector<MatLayerCyl>", -2, "vector", 214,
                   typeid(vector<MatLayerCyl>), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &vectorlEMatLayerCylgR_Dictionary, isa_proxy, 0,
                   sizeof(vector<MatLayerCyl>) );
@@ -665,7 +765,7 @@ namespace ROOT {
       vector<MatCell> *ptr = 0;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(vector<MatCell>));
       static ::ROOT::TGenericClassInfo 
-         instance("vector<MatCell>", -2, "vector", 216,
+         instance("vector<MatCell>", -2, "vector", 214,
                   typeid(vector<MatCell>), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &vectorlEMatCellgR_Dictionary, isa_proxy, 0,
                   sizeof(vector<MatCell>) );
@@ -725,11 +825,11 @@ namespace {
 0
     };
     static const char* includePaths[] = {
-"/home/shahoian/alice/sw/ubuntu1710_x86-64/ROOT/v6-12-06-2/include",
-"/home/shahoian/alice/sw/ubuntu1710_x86-64/O2/dev-1/include",
-"/home/shahoian/alice/sw/ubuntu1710_x86-64/FairRoot/0-1/include",
+"/home/shahoian/alice/sw/ubuntu1604_x86-64/ROOT/v6-12-06-3/include",
+"/home/shahoian/alice/sw/ubuntu1604_x86-64/O2/dev-1/include",
+"/home/shahoian/alice/sw/ubuntu1604_x86-64/FairRoot/0-2/include",
 "./",
-"/home/shahoian/alice/sw/ubuntu1710_x86-64/ROOT/v6-12-06-2/include",
+"/home/shahoian/alice/sw/ubuntu1604_x86-64/ROOT/v6-12-06-3/include",
 "/home/shahoian/dev/matbud/",
 0
     };
@@ -739,6 +839,7 @@ namespace {
 #pragma clang diagnostic ignored "-Wignored-attributes"
 #pragma clang diagnostic ignored "-Wreturn-type-c-linkage"
 extern int __Cling_Autoloading_Map;
+struct __attribute__((annotate("$clingAutoload$MatLayerCyl.h")))  __attribute__((annotate("$clingAutoload$Ray.h")))  MatCell;
 class __attribute__((annotate("$clingAutoload$MatLayerCyl.h")))  __attribute__((annotate("$clingAutoload$Ray.h")))  MatLayerCyl;
 class __attribute__((annotate("$clingAutoload$Ray.h")))  Ray;
 class __attribute__((annotate("$clingAutoload$MatLayerCylSet.h")))  MatLayerCylSet;
@@ -761,6 +862,7 @@ class __attribute__((annotate("$clingAutoload$MatLayerCylSet.h")))  MatLayerCylS
 #undef  _BACKWARD_BACKWARD_WARNING_H
 )DICTPAYLOAD";
     static const char* classesHeaders[]={
+"MatCell", payloadCode, "@",
 "MatLayerCyl", payloadCode, "@",
 "MatLayerCylSet", payloadCode, "@",
 "Ray", payloadCode, "@",
