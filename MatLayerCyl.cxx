@@ -87,8 +87,6 @@ int MatLayerCyl::getNPhiBinsInSlice(int iSlice, int &binMin, int &binMax) const
 void MatLayerCyl::populateFromTGeo(int ntrPerCell)
 {
   /// populate layer with info extracted from TGeometry, using ntrPerCell test tracks per cell
-  printf("Populating with %d tracks ",ntrPerCell);
-  print();
   ntrPerCell = ntrPerCell>1 ? ntrPerCell : 1;
   for (int iz=mNZBins;iz--;) {
     for (int ip=mNPhiBins;ip--;) {

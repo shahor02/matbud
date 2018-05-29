@@ -57,7 +57,7 @@ void MatLayerCylSet::optimizePhiSlices(float maxRelDiff)
 }
 
 //________________________________________________________________________________
-void MatLayerCylSet::populateFromTGeo(int ntrPerCel)
+void MatLayerCylSet::populateFromTGeo(int ntrPerCell)
 {
   ///< populate layers, using ntrPerCell test tracks per cell
   if (!gGeoManager || !gGeoManager->IsClosed()) {
@@ -65,7 +65,9 @@ void MatLayerCylSet::populateFromTGeo(int ntrPerCel)
     return;
   }
   for (int i=0;i<getNLayers();i++) {
-    mLayers[i].populateFromTGeo(ntrPerCel);
+    printf("Populating with %d trials Lr  %3d ",ntrPerCell, i);
+    mLayers[i].print();
+    mLayers[i].populateFromTGeo(ntrPerCell);
   }
   // build layer search structures  
   mR2Intervals.push_back(mLayers[0].getRMin2());
