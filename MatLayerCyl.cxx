@@ -12,7 +12,6 @@
 /// \brief Implementation of single cylindrical material layer 
 
 #include "MatLayerCyl.h"
-#include "Ray.h"
 #include "MathUtils/Utils.h"
 #include "CommonConstants/MathConstants.h"
 #include "DetectorsBase/GeometryManager.h"
@@ -102,11 +101,13 @@ void MatLayerCyl::populateFromTGeo(int ip, int iz, int ntrPerCell)
   
   float zmn = getZBinMin(iz), phmn = getPhiBinMin(ip), sn,cs, rMin = getRMin(), rMax = getRMax();
   double meanRho = 0., meanX2X0 = 0., lgt = 0.;;
+  float dz = mDZ/ntrPerCell;
   for (int isz=ntrPerCell;isz--;) {
-    float zs = zmn + (isz+0.5)*mDZ/ntrPerCell;
+    float zs = zmn + (isz+0.5)*dz;
+    float dzt = zs>0.f? 0.25*dz : -0.25*dz; // to avoid 90 degree polar angle
     for (int isp=ntrPerCell;isp--;) {
       o2::utils::sincosf(phmn + (isp+0.5)*mDPhi/ntrPerCell, sn,cs);
-      auto bud = o2::Base::GeometryManager::MeanMaterialBudget(rMin*cs,rMin*sn,zs,rMax*cs,rMax*sn,zs);
+      auto bud = o2::Base::GeometryManager::MeanMaterialBudget(rMin*cs,rMin*sn,zs-dzt,rMax*cs,rMax*sn,zs+dzt);
       if (bud.length>0.) {
 	meanRho += bud.length*bud.meanRho;
 	meanX2X0 += bud.meanX2X0; // we store actually not X2X0 but 1./X0

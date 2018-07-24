@@ -35,6 +35,7 @@ void buildMat(std::string outName = "barrel", int nTst=10)
   configLayers();
 
   for (auto l : lrData) {
+    if (l.rMin<75) continue;
     mbLUT.addLayer(l.rMin, l.rMax, l.zHalf, l.dZMin, l.dRPhiMin);
   }
 
@@ -56,6 +57,7 @@ void buildMat(std::string outName = "barrel", int nTst=10)
 //_______________________________________________________________________
 void configLayers()
 {
+  const float kToler = 1e-3;
   float drStep = 0.f, zSpanH = 0.f, zBin=0.f, rphiBin=0.f, phiBin=0.f;
   
   //                           rMin    rMax   zHalf
@@ -71,7 +73,7 @@ void configLayers()
   zBin = 0.5;
   do {
     lrData.emplace_back( LrData(  lrData.back().rMax, lrData.back().rMax+drStep, zSpanH,  zBin, rphiBin) );
-  } while (lrData.back().rMax<5.2);
+  } while (lrData.back().rMax<5.2+kToler);
 
   // air space between Inner and Middle Barrels
   lrData.emplace_back( LrData(  lrData.back().rMax, 18.0, zSpanH ) );
@@ -83,7 +85,7 @@ void configLayers()
   zBin = 0.5;
   do {
     lrData.emplace_back( LrData(  lrData.back().rMax, lrData.back().rMax+drStep, zSpanH,  zBin, rphiBin) );
-  } while (lrData.back().rMax<29.);
+  } while (lrData.back().rMax<29.+kToler);
   
   // air space between Middle and Outer Barrels
   zSpanH = 80.f;
@@ -96,7 +98,7 @@ void configLayers()
   zBin = 1.;
   do {
     lrData.emplace_back( LrData(  lrData.back().rMax, lrData.back().rMax+drStep, zSpanH,  zBin, rphiBin) );
-  } while (lrData.back().rMax<45.5);
+  } while (lrData.back().rMax<45.5+kToler);
 
   // air space between Outer Barrel and shell
   zSpanH = 100.f;
@@ -109,31 +111,45 @@ void configLayers()
   zBin = 1.;
   do {
     lrData.emplace_back( LrData(  lrData.back().rMax, lrData.back().rMax+drStep, zSpanH,  zBin, rphiBin) );
-  } while (lrData.back().rMax<63);
+  } while (lrData.back().rMax<63.+kToler);
   
   // air space between Shell and TPC
   zSpanH = 250.f;
-  lrData.emplace_back( LrData(  lrData.back().rMax, 75, zSpanH ) );
+  lrData.emplace_back( LrData(  lrData.back().rMax, 76, zSpanH ) );
 
   // TPC inner vessel
-  drStep = 0.5;
+  // up to r = 78.5
   zSpanH = 250.f;
   rphiBin = 1.;
   zBin = 25.;
-  do {
-    lrData.emplace_back( LrData(  lrData.back().rMax, lrData.back().rMax+drStep, zSpanH,  zBin, rphiBin) );
-  } while (lrData.back().rMax<86);
+  lrData.emplace_back( LrData(  lrData.back().rMax, 78.5, zSpanH,  zBin, rphiBin) );
 
-  // TPC drum
-  zSpanH = 250.f;
-  lrData.emplace_back( LrData(  lrData.back().rMax, 245, zSpanH ) );
-
-  // TPC outer vessel
-  drStep = 0.5;
+  //
   zSpanH = 250.f;
   rphiBin = 2.;
-  zBin = 25.;
+  zBin = 2;
+  lrData.emplace_back( LrData(  lrData.back().rMax, 84.5, zSpanH,  zBin, rphiBin) );
+ 
+  // TPC drum
+  zSpanH = 250.f;
+  lrData.emplace_back( LrData(  lrData.back().rMax, 250.0, zSpanH ) ); 
+
+  // TPC outer vessel
+  zSpanH = 247.f; // ignore large lumps of material at |z|>247
+  rphiBin = 2.;
+  zBin = 3.;
+  lrData.emplace_back( LrData(  lrData.back().rMax, 258., zSpanH,  zBin, rphiBin) );
+
+  zSpanH = 247.f; // ignore large lumps of material at |z|>247
+  rphiBin = 2.;
+  zBin = 999.; // no segmentation in Z
+  lrData.emplace_back( LrData(  lrData.back().rMax, 280., zSpanH,  zBin, rphiBin) );
+
+  drStep = 1;
+  zBin = 5;
+  rphiBin = 5.;
   do {
+    zSpanH = lrData.back().rMax;
     lrData.emplace_back( LrData(  lrData.back().rMax, lrData.back().rMax+drStep, zSpanH,  zBin, rphiBin) );
-  } while (lrData.back().rMax<255);  
+  } while (lrData.back().rMax<400);  
 }
